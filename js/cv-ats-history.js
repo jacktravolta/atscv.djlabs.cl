@@ -359,6 +359,9 @@ async function generar(tarjeta, boton, entrada) {
       // never charges twice.
       body: {
         perfil: item.perfil || {}, oferta: item.oferta || {}, brecha: item.brecha || {},
+        // The operation of the stored analysis: with it the generated files
+        // stay linked to THIS report, so they show up in its card.
+        operacion: item.operacion || '',
         plantilla, tipo, idempotency_key: `hist-${entrada.id_hys}-${plantilla}-${tipo}`,
       },
     });
