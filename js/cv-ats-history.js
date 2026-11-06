@@ -71,8 +71,8 @@ function inyectarEstilos() {
   estilo.id = 'cv-ats-history-styles';
   estilo.textContent = [
     '.cvats-hist-seccion { margin-top: 1.5rem; }',
-    '.cvats-hist-wrap { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .28s ease; } .cvats-hist-wrap-inner { overflow: hidden; }',
-    '.cvats-hist-tarjeta-wrap { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .28s ease; } .cvats-hist-tarjeta-inner { overflow: hidden; }',
+    '.cvats-hist-wrap { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .28s ease; } .cvats-hist-wrap-inner { overflow: hidden; min-height: 0; }',
+    '.cvats-hist-tarjeta-wrap { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .28s ease; } .cvats-hist-tarjeta-inner { overflow: hidden; min-height: 0; }',
     '.cvats-hist-overlay { position: fixed; inset: 0; z-index: 50; } .cvats-hist-overlay-fondo { position: absolute; inset: 0; background: rgba(15, 23, 42, .65); }',
     '.cvats-hist-overlay-caja { position: relative; width: 98vw; height: 94vh; margin: 3vh auto; overflow: auto; background: #fff; border-radius: 1rem; box-shadow: 0 24px 60px rgba(15, 23, 42, .35); }',
     '.cvats-hist-overlay-cerrar { position: absolute; top: .75rem; right: .75rem; z-index: 2; border: 1px solid #e2e8f0; border-radius: .5rem; background: #fff; padding: .35rem .85rem; font-size: .875rem; font-weight: 600; color: #334155; }',

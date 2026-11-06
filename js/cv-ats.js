@@ -1427,8 +1427,11 @@
         markStep(2);
         markStep(3);
         state.match = data;
-      avisarCreditos(data.creditos_restantes);
+        avisarCreditos(data.creditos_restantes);
         setTimeout(() => renderMatchReport(data), 250);
+        // The offer just compared belongs in the history right away: whoever
+        // compares it must not have to refresh the page to see it.
+        document.dispatchEvent(new CustomEvent('atscv:historial-refrescar'));
       } catch (error) {
         clearTimeout(stepTimer);
         renderFailure(error);
