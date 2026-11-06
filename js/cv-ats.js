@@ -1544,3 +1544,10 @@
     activarZonasDeCarga();
     inyectarBloqueUrl();
     activarSeccionMinimizable();
+
+    // The history reopens a stored report with the very same painter the
+    // fresh report uses, so both look identical.
+    export function abrirInforme(data) {
+      state.match = data;
+      renderMatchReport(data);
+    }
