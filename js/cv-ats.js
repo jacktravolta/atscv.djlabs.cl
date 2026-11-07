@@ -1467,7 +1467,6 @@
         avisarCreditos(data.creditos_restantes);
         renderGenerado(data);
       } catch (error) {
-        if (button) { button.textContent = 'Generar CV Adaptado a esta oferta [3 créditos]'; button.removeAttribute('aria-busy'); button.disabled = false; }
         if (error && (error.status === 402 || error.code === 'INSUFFICIENT_CREDITS')) {
           button && button.insertAdjacentHTML('afterend', paywallMarkup(error.message));
         } else if (error && (error.status === 401 || error.code === 'UNAUTHORIZED')) {
@@ -1477,6 +1476,16 @@
         }
       } finally {
         state.busy = false;
+        // The button comes back in BOTH paths. On success the panel keeps the
+        // catalog (tipo/plantilla) visible so the person can generate a
+        // second version of the document; before this the button stayed
+        // disabled with the text "Generando tu CV adaptado…" and the second
+        // variant was impossible from the UI.
+        if (button) {
+          button.textContent = 'Generar CV Adaptado a esta oferta [3 créditos]';
+          button.removeAttribute('aria-busy');
+          button.disabled = false;
+        }
       }
     }
 
