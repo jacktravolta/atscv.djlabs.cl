@@ -1,0 +1,10 @@
+# Local tooling and dependencies
+node_modules/
+.DS_Store
+
+# Requirement archives: client artifacts, not source
+*.zip
+
+# Local environment and secrets
+.env
+.env.*
