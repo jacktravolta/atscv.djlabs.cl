@@ -23,17 +23,28 @@ y el colapso de la sección de adjuntos se comportan igual en todas partes.
 
 ```bash
 # front (desde este directorio)
-python3 -m http.server 8002
+python3 serve_front.py 8002 .        # o: python3 -m http.server 8002
 
-# API (corazón atscv), en api.djlabs.cl/
-php -S 127.0.0.1:8099 -t public
+# API (corazón atscv), en api-independent/
+php -S 127.0.0.1:8086 -t public bin/dev-router.php
 ```
 
 El front llama a la API con `window.API(ruta)`, que usa `window.__API_BASE__`
-(`api-config.js`). En local apunta a `http://127.0.0.1:8099`.
+(`api-config.js`). En producción apunta al dominio `https://api.djlabs.cl`;
+en local se puede apuntar a `http://127.0.0.1:8086` con `?api=` (sólo
+funciona en `localhost`).
 
-> `api.djlabs.cl` no resuelve en DNS dentro de la red de desarrollo: usa la
-> IP local de la API.
+> El API es multi-corazón: el heart (`atscv`) viaja en cada llamada
+> heart-scoped (body `heart`, query `heart` o header `X-Heart-Id`). Una
+> llamada autenticada sin heart devuelve `HEART_REQUIRED` en vez de cobrar la
+> billetera de otro corazón.
+
+### Caché
+
+`serve_front.py` envía `Cache-Control: no-cache` a propósito: sin él, el
+edge de Cloudflare guarda el HTML/JS por horas (o meses para los `.js`) y
+sigue sirviendo un front viejo — un `api-config.js` apuntando a un origen
+muerto deja el chat sin conexión. Con `no-cache` el edge revalida siempre.
 
 ## Las dos tarjetas de entrada (idénticas por diseño)
 

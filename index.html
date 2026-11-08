@@ -32,7 +32,7 @@
   <!-- api-config.js defines window.__API_BASE__ and MUST run before the
        heart-theme fetch below: without it the theme would ask the FRONT's
        own origin for /ui/theme and get a 404 in every deployment. -->
-  <script src="api-config.js"></script>
+  <script src="api-config.js?v=3"></script>
   <script>
     // heart-theme: el backend sirve la apariencia por heart como JSON (REST).
     // Sigue la misma regla del endpoint original: el skin es
@@ -1088,13 +1088,14 @@
     // POST /auth/login: email + password + remember opt-in. On success the
     // backend sets the httpOnly session cookies (persistent 30 days when
     // remember=true, session-scope when remember=false); the caller then
-    // navigates to the panel.
+    // navigates to the panel. The heart travels with the request: the API
+    // serves several hearts and the balance it returns is THIS panel's.
     async function loginWithPassword(email, password, remember) {
       const response = await fetch(window.API('/auth/login'), {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, remember: remember === true }),
+        body: JSON.stringify({ email, password, remember: remember === true, heart: HEART }),
       });
 
       const data = await response.json().catch(() => ({}));
