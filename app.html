@@ -1934,7 +1934,7 @@
 
     function ensureChatPanel() {
       if (!chatWidgetPromise) {
-        chatWidgetPromise = import('./js/chat-widget.js?v=13')
+        chatWidgetPromise = import('./js/chat-widget.js?v=14')
           .then((m) => m.mountChat(document.getElementById('chat-panel'), {
             title: 'CV ATS Match',
             placeholder: 'Pregúntame sobre el informe…',

@@ -21,7 +21,8 @@
 import { apiUrl } from './api-base.js';
 import { avatarNode, botAvatarNode } from './avatar.js';
 import { playChime, soundsEnabled } from './sounds.js?v=2';
-import { typewrite } from './chat-typewriter.js?v=2';
+import { typewrite } from './chat-typewriter.js?v=3';
+import { aplicarEnfasis, animarBloques, inyectarEstilos } from './chat-emphasis.js?v=1';
 
 /**
  * @param {string} tag
@@ -175,6 +176,190 @@ function el(tag, attrs = {}, children = []) {
       .replace(/^(\s*)(\d{1,2})[.)]\s+/gm, '$1$2. ');
   }
 
+  // ---- Live rendering of the assistant's answer ---------------------------
+  // The answer shows its structure WHILE it is written: the lines that are
+  // finished go through the safe markdown renderer (renderChatMarkdown,
+  // escape-first) and the line being written stays plain text inside a live
+  // span. The DOM is rebuilt only when a line completes; the rest of the
+  // ticks just update the text of the live span (no reflow, no cost).
+  //
+  // The live renderer also CLOSES the bubble (final = true): it renders the
+  // complete answer and updates the blocks in place, so the nodes the reader
+  // is already looking at keep their entrance animation (the answer does not
+  // blink when it ends) and the text is never lost nor duplicated.
+  //
+  // The text of the model is UNTRUSTED: it only reaches the DOM through
+  // renderChatMarkdown (escape-first) and textContent, never as raw HTML.
+
+  const CLASE_LINEA_VIVA = 'chat-linea-viva';
+
+  /**
+   * The block children of a bubble (the <p>, <ul> and <ol> the markdown
+   * renderer produces).
+   *
+   * @param {HTMLElement} el
+   * @returns {HTMLElement[]}
+   */
+  function bloquesDe(el) {
+    const salida = [];
+    const hijos = (el && el.children) ? el.children : [];
+    for (const hijo of hijos) {
+      const tag = hijo.tagName;
+      if (tag === 'P' || tag === 'UL' || tag === 'OL') salida.push(hijo);
+    }
+    return salida;
+  }
+
+  /**
+   * The line being written is shown as plain text: the emphasis markers that
+   * are still open are removed, so the reader never sees raw syntax while
+   * the answer is being written.
+   *
+   * @param {string} linea
+   * @returns {string}
+   */
+  function textoLineaViva(linea) {
+    let texto = stripMarkdownSyntax(linea);
+    texto = texto.replace(/\*\*/g, '').replace(/[*`]+$/, '');
+    return texto;
+  }
+
+  /**
+   * Updates the content of a block that grew. A list keeps the items that are
+   * already on screen (only their content is updated); any other block gets
+   * its content replaced.
+   *
+   * @param {HTMLElement} actual
+   * @param {HTMLElement} nuevo
+   * @returns {void}
+   */
+  function actualizarContenido(actual, nuevo) {
+    const esLista = (actual.tagName === 'UL' || actual.tagName === 'OL')
+      && actual.tagName === nuevo.tagName;
+    if (!esLista) {
+      actual.innerHTML = nuevo.innerHTML;
+      return;
+    }
+    // The items already on screen keep their node (so they do not blink
+    // again); the new ones are appended and the extra ones are removed.
+    const items = Array.from(actual.children);
+    const nuevosItems = Array.from(nuevo.children);
+    for (let i = 0; i < nuevosItems.length; i++) {
+      if (items[i]) {
+        if (items[i].innerHTML !== nuevosItems[i].innerHTML) {
+          items[i].innerHTML = nuevosItems[i].innerHTML;
+        }
+      } else {
+        actual.appendChild(nuevosItems[i]);
+      }
+    }
+    while (actual.children.length > nuevosItems.length) {
+      actual.removeChild(actual.lastElementChild);
+    }
+  }
+
+  /**
+   * Updates the blocks of the bubble in place: the blocks that are already on
+   * screen keep their node (and therefore their entrance animation), the new
+   * ones are inserted before the line being written and the ones that grew
+   * only have their content updated.
+   *
+   * @param {HTMLElement} bubble
+   * @param {string} html — the safe markdown of the finished lines
+   * @param {{ viva: HTMLElement|null }} estado
+   * @returns {void}
+   */
+  function actualizarBloques(bubble, html, estado) {
+    const contenedor = document.createElement('div');
+    // escape-first: this is the output of renderChatMarkdown, never raw HTML
+    // from the model.
+    contenedor.innerHTML = html;
+    const nuevos = Array.from(contenedor.children)
+      .filter(n => n.tagName === 'P' || n.tagName === 'UL' || n.tagName === 'OL');
+    const actuales = bloquesDe(bubble);
+
+    // The blocks that are no longer there are removed (rare).
+    while (actuales.length > nuevos.length) {
+      const sobra = actuales.pop();
+      if (sobra && sobra.parentNode) sobra.parentNode.removeChild(sobra);
+    }
+
+    for (let i = 0; i < nuevos.length; i++) {
+      const actual = actuales[i];
+      const nuevo = nuevos[i];
+      if (!actual) {
+        // A new block: it goes before the line being written.
+        bubble.insertBefore(nuevo, estado.viva);
+      } else if (actual.tagName !== nuevo.tagName) {
+        // The shape of the block changed: it is replaced.
+        bubble.replaceChild(nuevo, actual);
+      } else if (actual.innerHTML !== nuevo.innerHTML) {
+        // The block grew: the node is kept (so it does not blink again) and
+        // only its content is updated.
+        actualizarContenido(actual, nuevo);
+      }
+    }
+  }
+
+  /**
+   * Renders the revealed text of the answer progressively inside the bubble.
+   *
+   * With `final` the answer is complete: every line counts as finished (there
+   * is no live line), the live span goes away and the blocks are updated in
+   * place — the nodes already on screen are kept, so they keep their entrance
+   * animation and the answer does not blink when it ends.
+   *
+   * @param {HTMLElement} bubble
+   * @param {string} revelado
+   * @param {{ lineas: number, bloques: number, viva: HTMLElement|null }} estado
+   * @param {boolean} [final=false]
+   * @returns {void}
+   */
+  function renderEnVivo(bubble, revelado, estado, final = false) {
+    const lineas = String(revelado ?? '').split('\n');
+    // On the final pass every line is finished: there is no live line.
+    const lineaViva = final ? '' : (lineas.pop() ?? '');
+    const completas = lineas.join('\n');
+
+    if (final || lineas.length !== estado.lineas) {
+      estado.lineas = lineas.length;
+
+      if (final) {
+        // The live line goes away: its text is already part of the blocks that
+        // are rendered now, so it must not be duplicated. Removing it also
+        // leaves the new blocks at the end of the bubble.
+        if (estado.viva) {
+          if (estado.viva.parentNode) estado.viva.parentNode.removeChild(estado.viva);
+          estado.viva = null;
+        }
+      } else if (!estado.viva) {
+        // The line being written lives in its own span, at the end.
+        const viva = el('span', { class: CLASE_LINEA_VIVA });
+        bubble.appendChild(viva);
+        estado.viva = viva;
+      }
+
+      const yaVisibles = bloquesDe(bubble).length;
+      // The finished lines go through the safe markdown renderer.
+      actualizarBloques(bubble, renderChatMarkdown(completas), estado);
+      bubble.style.whiteSpace = 'normal'; // <p>/<ul> take over the line breaks
+      // Only the blocks that just arrived enter with life: the ones already
+      // on screen keep their node (and their entrance). On the final pass
+      // that index is the one already animated.
+      animarBloques(bubble, final ? estado.bloques : yaVisibles);
+      estado.bloques = bloquesDe(bubble).length;
+      // The flags and the figures are highlighted while the answer is written.
+      aplicarEnfasis(bubble);
+    }
+
+    if (estado.viva) {
+      estado.viva.textContent = textoLineaViva(lineaViva);
+      // The flags and the figures of the line being written are highlighted
+      // as well (the wrap is rebuilt with the text, so it never flickers).
+      aplicarEnfasis(estado.viva);
+    }
+  }
+
   // ---- Video platform allowlist (module scope) -----------------------------
   // Links to these platforms inside assistant answers open in a modal player
   // over the chat instead of navigating away. Adding a platform = one entry
@@ -228,6 +413,11 @@ export function mountChat(container, options = {}) {
   if (!container) {
     throw new Error('mountChat requires a container element');
   }
+
+  // The emphasis styles (the flags in yellow, the figures, the entrance of
+  // the blocks) are shared by every bubble: they are injected once per
+  // document, never once per message.
+  inyectarEstilos();
 
   // Live identity for the sender circle on the visitor's own messages. Hosts
   // that pass no getter (guest pages) render plain rows, as before.
@@ -1108,25 +1298,45 @@ export function mountChat(container, options = {}) {
       // Assistant bubbles type progressively (perceived streaming — see
       // /js/chat-typewriter.js; prefers-reduced-motion skips the effect
       // inside typewrite). Text typed is UNTRUSTED model output, so the
-      // typer types a marker-free plain view; when the answer carries
-      // markdown, onComplete swaps the finished text for the safe rendered
-      // HTML (renderChatMarkdown is escape-first: no model-authored tag can
-      // reach innerHTML — only tags this module builds itself).
+      // typer types the raw text and the LIVE renderer (renderLive) paints
+      // it: the finished lines go through the safe markdown renderer
+      // (renderChatMarkdown is escape-first: no model-authored tag can reach
+      // innerHTML — only tags this module builds itself) and the line being
+      // written stays plain text, so a partial marker is never revealed.
+      // onComplete closes the bubble with the same renderer: the blocks are
+      // updated in place, the DOM is never replaced.
       const displayText = hasMarkdownSyntax(text) ? stripMarkdownSyntax(text) : text;
       // Render (markdown or linkified) when the answer carries markdown
       // syntax OR bare URLs/phones worth making clickable.
       const renderMarkdown = displayText !== text || hasLinkableContent(text);
-      const typer = typewrite(bubble, displayText, {
+      // Live state of this bubble: how many lines are already rendered and
+      // the span of the line that is being written right now.
+      const estado = { lineas: -1, bloques: 0, viva: null };
+      const typer = typewrite(bubble, text, {
         scroller: list,
+        renderLive: (revelado) => renderEnVivo(bubble, revelado, estado),
         onComplete: () => {
           bubble.classList.remove('cursor-pointer');
           bubble.removeAttribute('title');
           bubble.removeAttribute('aria-busy');
 
-          if (renderMarkdown) {
+          if (estado.lineas !== -1) {
+            // The live renderer owns this bubble: it CLOSES it by rendering the
+            // complete answer and updating the blocks in place. The DOM is NOT
+            // replaced, so the blocks the reader is already looking at keep
+            // their entrance (the answer does not blink when it ends) and the
+            // text is never lost nor duplicated.
+            renderEnVivo(bubble, text, estado, true);
+          } else if (renderMarkdown) {
+            // Fallback (the live renderer never ran): the safe rendered HTML.
             bubble.innerHTML = renderChatMarkdown(text); // escape-first, see above
             bubble.style.whiteSpace = 'normal'; // <br>/<p> take over line breaks
+            animarBloques(bubble, 0);
           }
+
+          // The answer is complete: the flags and the figures get their final
+          // emphasis (idempotent: the live renderer already did it).
+          aplicarEnfasis(bubble);
 
           // Formatted report (server-rendered, additive field informe_html):
           // shown inside a sandboxed iframe right below the text. The

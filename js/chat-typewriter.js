@@ -26,10 +26,21 @@
 //     bottom; scrolling up pauses following until they return.
 //
 // Everything is written with textContent (never innerHTML): chat answers
-// are untrusted model output. Markdown note: chat bubbles render PLAIN text
-// today, so the plain text is typed as-is — if a markdown renderer is ever
-// added, keep typing the plain text and swap to the rendered node in
-// onComplete instead of revealing partial syntax mid-word.
+// are untrusted model output. Markdown note: the chat bubble does NOT type
+// plain text and swap it for markup at the end — with the renderLive hook
+// (see below) the caller renders the answer as it is written: the lines
+// that are finished go through the safe markdown renderer and the line that
+// is being written stays plain text, so a partial marker is never revealed.
+//
+// Live rendering hook:
+//   opts.renderLive(revealedText) — when present, the typewriter does NOT
+//   write the revealed text into the element: it hands it to this callback
+//   on every tick (and on complete). The callback owns the DOM, so the
+//   caller can render the answer progressively (finished lines through the
+//   safe markdown renderer, the line being written as plain text) instead
+//   of waiting for the whole answer to build the structure at once.
+//   Without the hook the behaviour is exactly the same as before: the
+//   revealed text is written with textContent.
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
@@ -61,6 +72,7 @@ const STREAM_POLL_MS = 40;
  *   instant?: boolean,             // skip the effect; reveal everything now
  *   scroller?: HTMLElement | null, // scroll container to follow while typing
  *   followThreshold?: number,      // px from bottom still considered "at bottom"
+ *   renderLive?: (revealed: string) => void, // custom renderer of the revealed text
  *   onComplete?: () => void,       // fired once when every fed char is revealed
  * }} [opts]
  * @returns {{
@@ -131,11 +143,22 @@ export function typewrite(el, text, opts = {}) {
     }
   }
 
+  // Writes the revealed text. With the renderLive hook the caller owns the
+  // DOM (it can render the answer progressively); without it the behaviour is
+  // the historical one: textContent, never innerHTML.
+  function render(texto) {
+    if (typeof opts.renderLive === 'function') {
+      opts.renderLive(texto);
+      return;
+    }
+    el.textContent = texto;
+  }
+
   function complete() {
     if (finished) return;
     stopTimer();
     revealed = full.length;
-    el.textContent = full;
+    render(full);
     finished = true;
     if (typeof opts.onComplete === 'function') {
       opts.onComplete();
@@ -165,7 +188,7 @@ export function typewrite(el, text, opts = {}) {
 
     if (longMode && revealed >= FAST_MODE_FROM) {
       const next = Math.min(full.length, revealed + FAST_CHUNK_SIZE);
-      el.textContent = full.slice(0, next);
+      render(full.slice(0, next));
       revealed = next;
       followScroll();
       timer = setTimeout(tick, FAST_DELAY_MS);
@@ -178,7 +201,7 @@ export function typewrite(el, text, opts = {}) {
       : 1 + Math.floor(Math.random() * 3); // 1-3 chars per tick
     const next = Math.min(full.length, revealed + step);
 
-    el.textContent = full.slice(0, next);
+    render(full.slice(0, next));
     revealed = next;
     followScroll();
 
@@ -200,7 +223,7 @@ export function typewrite(el, text, opts = {}) {
     if (finished || !more) return;
     full += String(more);
     if (instant) {
-      el.textContent = full;
+      render(full);
       revealed = full.length;
       if (streamDone) complete();
     }
