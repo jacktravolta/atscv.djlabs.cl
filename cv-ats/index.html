@@ -2,20 +2,16 @@
 <html lang="es" data-tema="dia" data-skin="indigo">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://api.djlabs.cl https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; frame-src https://www.youtube-nocookie.com https://player.vimeo.com; media-src 'self' data: blob: https:; manifest-src 'self'">
   <title>CV ATS Match — Analiza tu CV contra la oferta</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Sube tu CV y la oferta: te decimos qué le falta a tu perfil para pasar el filtro ATS y adaptamos tu CV.">
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
-  <script src="https://cdn.tailwindcss.com"></script>
   <script src="../js/tailwind.config.js"></script>
   <link rel="stylesheet" href="../css/tokens.css" />
   <script src="../api-config.js?v=3"></script>
-  <script>
-    window.API = (function () {
-      var base = (typeof window.__API_BASE__ === 'string') ? window.__API_BASE__.trim().replace(/\/+$/, '') : '';
-      return function (path) { return base + path; };
-    })();
-  </script>
+  <script src="../js/inline/cv-ats/index-1.js"></script>
+  <link rel="stylesheet" href="../css/tailwind.css">
 </head>
 <body class="min-h-screen">
   <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
