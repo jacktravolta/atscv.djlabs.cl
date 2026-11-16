@@ -19,6 +19,19 @@ import {
 
 const PAGE_SIZE = 10;
 
+// Resultado del retorno de Flow. El servidor decide el estado y el saldo;
+// el front solo explica el resultado con un tono claro y sin culpas.
+const PAYMENT_RETURN_MESSAGES = Object.freeze({
+  approved: 'Listo: tu pago quedó aprobado. Los créditos se acreditan en cuanto el pago se confirme.',
+  rejected: 'El pago fue rechazado y no se acreditó nada. No se cobró nada de tu tarjeta; puedes intentar de nuevo cuando quieras.',
+  cancelled: 'Anulaste el pago, así que no se acreditó ningún crédito y no se cobró nada. Cuando quieras, puedes volver a intentarlo.',
+  pending: 'Tu pago está pendiente de confirmación. En cuanto Flow lo confirme, los créditos aparecen en tu billetera.',
+  unknown: 'No pudimos confirmar el estado de tu pago. Si el cargo aparece en tu tarjeta, escríbenos y lo revisamos; mientras tanto no se acreditó nada.',
+});
+
+const PAYMENT_RETURN_STATES = new Set(Object.keys(PAYMENT_RETURN_MESSAGES));
+let paymentReturnNoticeActive = false;
+
 const TYPE_LABELS = {
   WELCOME_CREDIT: 'Bienvenida',
   PURCHASE_CREDIT: 'Recarga',
@@ -323,8 +336,44 @@ function renderTariffs(tariffs) {
  */
 function showError(message) {
   const box = document.getElementById('wallet-error');
+  const notice = document.getElementById('wallet-notice');
+
+  paymentReturnNoticeActive = false;
+
+  if (notice) {
+    notice.textContent = '';
+    notice.classList.add('hidden');
+  }
+
   box.textContent = message;
   box.classList.remove('hidden');
+}
+
+/**
+ * Muestra el resultado del retorno de Flow en los mismos contenedores que
+ * usa la billetera. Solo `approved` es un éxito; los demás estados son
+ * avisos. Un estado fuera del contrato se trata como `unknown`.
+ *
+ * @param {string} state
+ */
+function showPaymentReturn(state) {
+  const normalized = PAYMENT_RETURN_STATES.has(state) ? state : 'unknown';
+  const message = PAYMENT_RETURN_MESSAGES[normalized];
+  const success = normalized === 'approved';
+  const notice = document.getElementById('wallet-notice');
+  const error = document.getElementById('wallet-error');
+
+  if (notice) {
+    notice.textContent = success ? message : '';
+    notice.classList.toggle('hidden', !success);
+  }
+
+  if (error) {
+    error.textContent = success ? '' : message;
+    error.classList.toggle('hidden', success);
+  }
+
+  paymentReturnNoticeActive = true;
 }
 
 /**
@@ -894,6 +943,8 @@ function renderVoucher(voucher, options = {}) {
  * Loads balance, movements, tariffs, and top-up limits in parallel.
  */
 async function loadAll() {
+  const preservePaymentNotice = paymentReturnNoticeActive;
+
   try {
     const [balance, movements, tariffs, limits] = await Promise.all([
       // withHeart: agrega ?heart= solo cuando la vista fijó WALLET_HEART
@@ -931,8 +982,28 @@ async function loadAll() {
       await showVoucher(lastOrder, { fromStorage: true, celebrate: prevBalance });
     }
   } catch (err) {
-    showError(err.message);
+    // Un fallo al refrescar datos no debe pisar el resultado del pago que
+    // acabamos de mostrar. Los errores de acciones posteriores sí lo
+    // reemplazan, porque showError() limpia este estado.
+    if (!preservePaymentNotice) {
+      showError(err.message);
+    }
+  } finally {
+    paymentReturnNoticeActive = false;
   }
+}
+
+/**
+ * Procesa el retorno de Flow: muestra primero el resultado del pago y
+ * después recarga la billetera por el mismo camino que usa el panel.
+ *
+ * @param {string} state
+ * @returns {Promise<void>}
+ */
+export function handlePaymentReturn(state) {
+  showPaymentReturn(state);
+
+  return loadAll();
 }
 
 /**

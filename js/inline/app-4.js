@@ -77,6 +77,44 @@
     const $ = (id) => document.getElementById(id);
     const state = { balance: null, analyses: [], user: null };
 
+    // Retorno de Flow: el servidor vuelve con ?pago=<estado>#billetera.
+    // Se consume una sola vez al cargar; el módulo de billetera se encarga
+    // del texto final y del refresco del saldo.
+    function readPaymentReturn() {
+      const params = new URLSearchParams(window.location.search);
+
+      if (!params.has('pago')) return null;
+
+      return {
+        state: params.get('pago') || 'unknown',
+      };
+    }
+
+    function clearPaymentReturnQuery() {
+      const url = new URL(window.location.href);
+
+      if (!url.searchParams.has('pago')) return;
+
+      url.search = '';
+      url.hash = '#billetera';
+
+      try {
+        window.history.replaceState(null, '', url.pathname + url.hash);
+      } catch (_) {
+        // Si el navegador bloquea replaceState, el aviso igual queda visible.
+      }
+    }
+
+    function showGatePaymentReturn() {
+      const notice = $('gate-payment-notice');
+
+      if (notice) notice.classList.remove('hidden');
+    }
+
+    const paymentReturn = readPaymentReturn();
+
+    if (paymentReturn) clearPaymentReturnQuery();
+
     // El header Authorization SOLO viaja si hay token: mandar "Bearer "
     // (vacío) o un token caducado hace que el backend descarte la sesión y
     // responda 401, aunque la cookie httpOnly del login siga viva. La cookie
@@ -197,7 +235,13 @@
         resumeActiveCapture(); // Captura de contenido en curso: retomarla igual.
         loadCaptureMeta();
         renderSourceList(); // Fuentes del RAG: sitios, informes y adjuntos.
-        if (!deepLinkedInforme) restoreLastPanel(profile.role); // Panel persistente: reabrir la última vista visitada (cede ante el deep link).
+        if (paymentReturn) {
+          // El retorno del pago manda sobre el panel recordado: la persona
+          // aterriza en Billetera y ve el resultado del pago.
+          showPanel('billetera', { paymentReturn: paymentReturn.state });
+        } else if (!deepLinkedInforme) {
+          restoreLastPanel(profile.role); // Panel persistente: reabrir la última vista visitada (cede ante el deep link).
+        }
       } catch (err) {
         // Sesión no válida o recurso caído: se muestra la puerta de entrada,
         // nunca un panel a medias sin datos.
@@ -211,6 +255,12 @@
         $('panel-perfil').classList.add('hidden');
         $('panel-gestion-vendedor').classList.add('hidden');
         syncGestionVendedorNav(false);
+
+        if (paymentReturn) {
+          // Sin sesión no se abre Billetera ni se pide el saldo: se explica
+          // el bloqueo y se ofrece un enlace claro para iniciar sesión.
+          showGatePaymentReturn();
+        }
       }
     })();
 
@@ -250,7 +300,7 @@
       if (field && rut && !field.value) field.value = rut;
     }
 
-    function showPanel(name) {
+    function showPanel(name, options) {
       const walletActive = name === 'billetera';
       const notifActive = name === 'notificaciones';
       const convActive = name === 'conversaciones';
@@ -278,11 +328,17 @@
         prefillTopupRutOnce(); // R1.5: profile identity value (RUT format) → invoice buyer RUT, first open only
         // Misma entrada que app.js: initWallet (cablea una sola vez) +
         // refreshWallet (resetea paginación y recarga los 4 recursos).
-        import('../wallet.js?v=4').then(function (m) {
+        const paymentState = options && options.paymentReturn;
+
+        import('../wallet.js?v=5').then(function (m) {
           if (m.initWallet) {
             m.initWallet();
           }
-          if (m.refreshWallet) {
+          if (paymentState && m.handlePaymentReturn) {
+            // El retorno muestra primero el resultado y después refresca el
+            // saldo con el mismo loader que usa la billetera normalmente.
+            m.handlePaymentReturn(paymentState);
+          } else if (m.refreshWallet) {
             m.refreshWallet();
           }
         }).catch(function (e) {
