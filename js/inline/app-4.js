@@ -77,23 +77,30 @@
     const $ = (id) => document.getElementById(id);
     const state = { balance: null, analyses: [], user: null };
 
-    // Retorno de Flow: el servidor vuelve con ?pago=<estado>#billetera.
+    // Retorno de Flow: el servidor vuelve con ?pago=<estado>&orden=<id>&monto=<CLP>.
     // Se consume una sola vez al cargar; el módulo de billetera se encarga
-    // del texto final y del refresco del saldo.
+    // del texto final, la confirmación en vivo y el refresco del saldo.
     function readPaymentReturn() {
       const params = new URLSearchParams(window.location.search);
 
       if (!params.has('pago')) return null;
 
+      const rawAmount = (params.get('monto') || '').trim();
+      const parsedAmount = rawAmount === '' ? NaN : Number(rawAmount);
+      const rawOrderId = (params.get('orden') || '').trim();
+
       return {
         state: params.get('pago') || 'unknown',
+        amount: Number.isFinite(parsedAmount) ? parsedAmount : null,
+        orderId: rawOrderId !== '' ? rawOrderId : null,
       };
     }
 
     function clearPaymentReturnQuery() {
       const url = new URL(window.location.href);
+      const hasPaymentParams = ['pago', 'orden', 'monto'].some((key) => url.searchParams.has(key));
 
-      if (!url.searchParams.has('pago')) return;
+      if (!hasPaymentParams) return;
 
       url.search = '';
       url.hash = '#billetera';
@@ -238,7 +245,7 @@
         if (paymentReturn) {
           // El retorno del pago manda sobre el panel recordado: la persona
           // aterriza en Billetera y ve el resultado del pago.
-          showPanel('billetera', { paymentReturn: paymentReturn.state });
+          showPanel('billetera', { paymentReturn: paymentReturn });
         } else if (!deepLinkedInforme) {
           restoreLastPanel(profile.role); // Panel persistente: reabrir la última vista visitada (cede ante el deep link).
         }
@@ -328,16 +335,21 @@
         prefillTopupRutOnce(); // R1.5: profile identity value (RUT format) → invoice buyer RUT, first open only
         // Misma entrada que app.js: initWallet (cablea una sola vez) +
         // refreshWallet (resetea paginación y recarga los 4 recursos).
-        const paymentState = options && options.paymentReturn;
+        const paymentDetails = options && options.paymentReturn;
 
-        import('../wallet.js?v=5').then(function (m) {
+        import('../wallet.js?v=6').then(function (m) {
           if (m.initWallet) {
             m.initWallet();
           }
-          if (paymentState && m.handlePaymentReturn) {
+          if (paymentDetails && m.handlePaymentReturn) {
+            // Esta ruta se abre después de validar la sesión en el boot.
             // El retorno muestra primero el resultado y después refresca el
             // saldo con el mismo loader que usa la billetera normalmente.
-            m.handlePaymentReturn(paymentState);
+            m.handlePaymentReturn(paymentDetails.state, {
+              amount: paymentDetails.amount,
+              orderId: paymentDetails.orderId,
+              sessionAvailable: true,
+            });
           } else if (m.refreshWallet) {
             m.refreshWallet();
           }

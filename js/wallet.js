@@ -19,17 +19,26 @@ import {
 
 const PAGE_SIZE = 10;
 
-// Resultado del retorno de Flow. El servidor decide el estado y el saldo;
-// el front solo explica el resultado con un tono claro y sin culpas.
+// Resultado del retorno de Flow. El front explica el veredicto recibido
+// con un tono claro y sin culpas; si todavía está pendiente, consulta la
+// orden hasta que Flow confirme el desenlace real.
 const PAYMENT_RETURN_MESSAGES = Object.freeze({
-  approved: 'Listo: tu pago quedó aprobado. Los créditos se acreditan en cuanto el pago se confirme.',
-  rejected: 'El pago fue rechazado y no se acreditó nada. No se cobró nada de tu tarjeta; puedes intentar de nuevo cuando quieras.',
-  cancelled: 'Anulaste el pago, así que no se acreditó ningún crédito y no se cobró nada. Cuando quieras, puedes volver a intentarlo.',
-  pending: 'Tu pago está pendiente de confirmación. En cuanto Flow lo confirme, los créditos aparecen en tu billetera.',
-  unknown: 'No pudimos confirmar el estado de tu pago. Si el cargo aparece en tu tarjeta, escríbenos y lo revisamos; mientras tanto no se acreditó nada.',
+  approved: 'Listo: Flow confirmó tu pago{amount}. Los créditos se acreditan en cuanto el pago se confirme.',
+  rejected: 'Flow rechazó el pago. No se acreditó ningún crédito y no se cobró nada de tu tarjeta; puedes intentarlo de nuevo cuando quieras.',
+  cancelled: 'Anulaste el pago en Flow. No se acreditó ningún crédito y no se cobró nada; cuando quieras, puedes volver a intentarlo.',
+  pending: 'Estamos confirmando tu pago con Flow. En un momento te decimos qué pasó; mientras tanto no se acreditó nada.',
+  unknown: 'No pudimos confirmar el estado de tu pago con Flow. Si el cargo aparece en tu tarjeta, escríbenos y lo revisamos; mientras tanto no se acreditó nada.',
 });
 
 const PAYMENT_RETURN_STATES = new Set(Object.keys(PAYMENT_RETURN_MESSAGES));
+const PAYMENT_ORDER_FINAL_STATES = Object.freeze({
+  APPROVED: 'approved',
+  REJECTED: 'rejected',
+  CANCELED: 'cancelled',
+});
+const PAYMENT_STATUS_POLL_INTERVAL_MS = 2000;
+const PAYMENT_STATUS_POLL_TIMEOUT_MS = 45000;
+const PAYMENT_STATUS_POLL_MAX_ATTEMPTS = 22;
 let paymentReturnNoticeActive = false;
 
 const TYPE_LABELS = {
@@ -350,15 +359,54 @@ function showError(message) {
 }
 
 /**
+ * Normaliza el estado recibido por el redirect. Cualquier valor fuera del
+ * contrato se trata como `unknown` para no inventar un resultado.
+ *
+ * @param {string} state
+ * @returns {string}
+ */
+function normalizePaymentReturnState(state) {
+  return PAYMENT_RETURN_STATES.has(state) ? state : 'unknown';
+}
+
+/**
+ * Conserva solo un monto numérico conocido. La API y el redirect lo
+ * entregan en CLP; el formato visible se resuelve con el helper del módulo.
+ *
+ * @param {number|null|undefined} value
+ * @returns {number|null}
+ */
+function normalizePaymentAmount(value) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Conserva solo un identificador de orden utilizable.
+ *
+ * @param {string|null|undefined} value
+ * @returns {string|null}
+ */
+function normalizePaymentOrderId(value) {
+  if (typeof value !== 'string') return null;
+
+  const orderId = value.trim();
+
+  return orderId !== '' ? orderId : null;
+}
+
+/**
  * Muestra el resultado del retorno de Flow en los mismos contenedores que
  * usa la billetera. Solo `approved` es un éxito; los demás estados son
  * avisos. Un estado fuera del contrato se trata como `unknown`.
  *
  * @param {string} state
+ * @param {{ amount?: number|null, orderId?: string|null }} [options]
  */
-function showPaymentReturn(state) {
-  const normalized = PAYMENT_RETURN_STATES.has(state) ? state : 'unknown';
-  const message = PAYMENT_RETURN_MESSAGES[normalized];
+function showPaymentReturn(state, options = {}) {
+  const normalized = normalizePaymentReturnState(state);
+  const amount = normalizePaymentAmount(options.amount);
+  const amountText = amount === null ? '' : ` de $${numberFormat.format(amount)}`;
+  const message = PAYMENT_RETURN_MESSAGES[normalized].replace('{amount}', amountText);
   const success = normalized === 'approved';
   const notice = document.getElementById('wallet-notice');
   const error = document.getElementById('wallet-error');
@@ -994,16 +1042,93 @@ async function loadAll() {
 }
 
 /**
- * Procesa el retorno de Flow: muestra primero el resultado del pago y
- * después recarga la billetera por el mismo camino que usa el panel.
+ * Confirma en vivo una orden que Flow todavía reporta como pendiente.
+ * Nunca muestra errores técnicos: si la red o la sesión fallan, conserva el
+ * aviso de confirmación y reintenta dentro de una ventana acotada.
  *
- * @param {string} state
+ * @param {string} orderId
+ * @param {number|null} initialAmount
  * @returns {Promise<void>}
  */
-export function handlePaymentReturn(state) {
-  showPaymentReturn(state);
+async function confirmPendingPaymentOrder(orderId, initialAmount) {
+  const startedAt = Date.now();
+  let amount = initialAmount;
 
-  return loadAll();
+  for (let attempt = 0; attempt < PAYMENT_STATUS_POLL_MAX_ATTEMPTS; attempt += 1) {
+    const scheduledAt = startedAt + attempt * PAYMENT_STATUS_POLL_INTERVAL_MS;
+    const waitMs = scheduledAt - Date.now();
+
+    if (waitMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+
+    if (Date.now() - startedAt >= PAYMENT_STATUS_POLL_TIMEOUT_MS) break;
+
+    try {
+      const order = await apiGet(`/payments/orders/${encodeURIComponent(orderId)}`);
+      const rawAmount = order && order.amount_clp;
+      const orderAmount = rawAmount !== null && rawAmount !== undefined && rawAmount !== ''
+        ? normalizePaymentAmount(Number(rawAmount))
+        : null;
+
+      if (orderAmount !== null) amount = orderAmount;
+
+      const status = order && typeof order.status === 'string'
+        ? order.status.toUpperCase()
+        : '';
+      const finalState = PAYMENT_ORDER_FINAL_STATES[status];
+
+      if (!finalState) continue;
+
+      showPaymentReturn(finalState, { amount, orderId });
+
+      if (finalState === 'approved') {
+        // El webhook firmado ya acreditó los créditos; el nuevo saldo debe
+        // quedar visible en la billetera antes de terminar.
+        await loadAll();
+      }
+
+      return;
+    } catch (err) {
+      // Sin sesión o con una orden inexistente no tiene sentido insistir.
+      // Una caída de red o un error temporal sí permite otro intento.
+      if (err && (err.status === 401 || err.status === 403 || err.status === 404)) {
+        return;
+      }
+    }
+  }
+}
+
+/**
+ * Procesa el retorno de Flow: muestra primero el resultado del pago y
+ * después recarga la billetera por el mismo camino que usa el panel.
+ * `sessionAvailable` impide consultar la API cuando esta vista se abrió sin
+ * una sesión válida; el gate de `app.html` explica ese caso a la persona.
+ *
+ * @param {string} state
+ * @param {{ amount?: number|null, orderId?: string|null, sessionAvailable?: boolean }} [options]
+ * @returns {Promise<void>}
+ */
+export async function handlePaymentReturn(state, options = {}) {
+  const normalized = normalizePaymentReturnState(state);
+  const amount = normalizePaymentAmount(options.amount);
+  const orderId = normalizePaymentOrderId(options.orderId);
+
+  showPaymentReturn(normalized, { amount, orderId });
+
+  if (options.sessionAvailable !== true) return;
+
+  const refreshPromise = loadAll();
+
+  if (normalized !== 'pending' || !orderId) {
+    await refreshPromise;
+    return;
+  }
+
+  await Promise.all([
+    refreshPromise,
+    confirmPendingPaymentOrder(orderId, amount),
+  ]);
 }
 
 /**
