@@ -1,0 +1,148 @@
+# Feature — ATSCV front corporate polish + 100-round live E2E battery
+
+- **Feature id**: `atscv-front-corporativo-bateria-100`
+- **Repository**: `/home/test/test/atscv-independent` (canonical front, remote `github.com/jacktravolta/atscv.djlabs.cl.git`)
+- **Branch**: `feat/atscv-front-corporativo-bateria-100` (branched from `origin/main` = `6905c33`)
+- **Production surface under test**: `https://atscv.djlabs.cl/`
+- **Engram mirror**: `odd/atscv-front-corporativo-bateria-100/tasks`
+
+## Objective
+
+Make the CV ATS Match front correct on mobile and visually corporate, then prove the
+whole product path with a real browser against the **production domain**, repeated
+100 times, with every test account removed from the front before the session closes.
+
+## Problem
+
+1. **Mobile navigation**: the landing `index.html` has **no burger at all** — the nav is
+   `hidden … md:flex` (`index.html:81-87`). Under 768 px the five section links
+   (Cómo funciona / Qué ofrece / Analizar mi CV / Recargas / Contáctanos) leave the flow
+   with no replacement, so the lower links are unreachable on a phone.
+2. **Colour flip**: the page paints with `data-skin="teal"` (`index.html:2`), then
+   `js/inline/index-2.js:10-18` fetches `GET /ui/theme?heart=atscv` and **overwrites**
+   `data-skin` with the server value (`indigo`) **after the first paint**. Tailwind's
+   `transition` utility includes `background-color` (150 ms), so the whole brand colour
+   animates from teal to indigo seconds after load. The same fetch also writes the
+   admin's day/night default over the visitor's stored preference.
+3. **Template**: the landing is flat (cards without elevation while the panel uses
+   `shadow-sm`), card backgrounds are inverted between sections, the accent is spelled
+   two ways (`brand-*` vs `blue-*`), `/cv-ats/` looks like a different product, and the
+   two brand typefaces (`Newsreader`, `Public Sans`) declared in `css/tokens.css` are
+   **never loaded** (no `@font-face`, CSP `font-src 'self' data:`), so the design system
+   falls back to Georgia/system-ui.
+4. **No live battery**: the existing harnesses (`api-independent/scripts/test_atscv_40usuarios.sh`,
+   `test_atscv_e2e.sh`) drive the **API** with curl against `127.0.0.1`. Nothing drives
+   the real front in a real browser against the real domain.
+
+## Why
+
+The owner asked for a full journey proof on the live domain, repeated 100 times, with
+failures fixed in the loop and no database litter. A front that cannot be navigated on a
+phone and that repaints its brand colour after load is not shippable to 100 real users.
+
+## Scope
+
+**In scope**
+
+- Front changes in this repository only: `index.html`, `app.html`, `cv-ats/index.html`,
+  `js/inline/index-*.js`, `css/tokens.css`, `css/input.css`, `tailwind.build.config.js`,
+  and new self-hosted fonts under `fonts/`.
+- A CDP harness under `tests/` in this repository, driving `https://atscv.djlabs.cl/`.
+- Publish through the repository's own pipeline: push to `main` → GitHub Pages workflow
+  `pages-build-deployment` → `atscv.djlabs.cl`.
+
+**Out of scope**
+
+- The API repository (`api-independent`) is read-only for this feature. Product rate
+  limits, credits and heart behaviour are not modified.
+- `controldecarroceria/atscv.djlabs.cl` is a stale, git-ignored copy. Never edited, never
+  published.
+- The stale second surface `https://api.djlabs.cl/atscv/` is **not** refreshed by this
+  feature (separate publish path, `scripts/publish-atscv-front.sh`).
+
+## Constraints
+
+- **Deployment chain**: `atscv.djlabs.cl` = GitHub Pages of the private repo, branch
+  `main`, root `/`. Verified: the live `index.html` sha256 equals `git show main:index.html`,
+  and `gh api repos/jacktravolta/atscv.djlabs.cl/pages` reports `source.branch=main`,
+  `source.path=/`, workflow `pages-build-deployment`.
+- **API calls come from the browser**: `api-config.js` pins `https://api.djlabs.cl`, and
+  the API resolves the client IP from `CF-Connecting-IP` behind the Cloudflare tunnel, so
+  IP-scoped buckets (`auth:login`, `contact`) are shared by the whole battery.
+  Only those two **test-artifact** buckets may be cleared between rounds; the product
+  buckets (`atscv_match`, `atscv_generate`, `atscv_url`) are per user and must stay.
+- **Real model calls**: every round costs real LLM calls (3 for the match, 2 for the
+  generation). 100 rounds = ~500 real calls.
+- **RDD is off** (`gentle-ai review mode status` → `off`, decided by global). No native
+  review gate; ordinary functional checks apply.
+- **TDD**: no `strict_tdd` configuration exists for this project. Checks are the existing
+  `node --test` unit tests plus the CDP battery.
+- Style: the live page must keep the plain-Spanish, empathetic voice of the product.
+
+## Tasks
+
+- [ ] **T1 — Mobile navigation on the landing.** Add a real burger to `index.html`
+      (button + panel with the five section links + auth actions + theme toggle), wire it
+      in the inline boot, close on link click and on Escape, keep the desktop nav at
+      `lg:flex`. Panel must have an opaque background. Duplicate `#btn-enter-panel` must
+      become a unique id so both header copies react to the session.
+- [ ] **T2 — Fixed brand colour.** One source of truth: `data-skin="indigo"` in the markup
+      of `index.html`, `app.html`, `cv-ats/index.html`; the `/ui/theme` fetch must not
+      repaint the accent after the first paint, and must not overwrite the visitor's stored
+      day/night preference. `/cv-ats/` must honour the stored `aj:tema` before paint.
+- [ ] **T3 — Corporate template.** Load the declared brand typefaces (self-hosted woff2,
+      `font-src 'self'` already allows it), give the landing cards the same border +
+      elevation as the panel, unify the card background logic across sections, give the
+      page a section rhythm, unify the accent label (`brand-*`), and give `/cv-ats/` the
+      same header identity as the landing.
+- [ ] **T4 — Live CDP battery harness.** `tests/atscv-battery.mjs` driving a real Chrome
+      over CDP against `https://atscv.djlabs.cl/`: contact form → register → login →
+      panel → CV + offer in the three input modes (PDF upload, URL, typed text) →
+      match report → template selection → adapted CV + cover letter (DOCX and PDF) →
+      **delete the account from the front** (typed `BORRAR` confirmation) → verify the
+      account is gone → close the session. One round = one new user, one deletion.
+- [ ] **T5 — Run 100 rounds and fix what breaks.** Loop until the battery is green or a
+      blocker is proven to be a product limit. Log every round, keep the failure report
+      honest.
+
+## Acceptance criteria
+
+1. At 375 px width the landing exposes every section link through the burger, and the
+   panel is fully visible without horizontal scroll.
+2. The brand colour is identical before and after the `/ui/theme` response; no transition
+   on load; the stored day/night preference survives a reload.
+3. The landing reads as one system: brand typefaces active, consistent card elevation and
+   borders, one accent label, and `/cv-ats/` sharing the landing header.
+4. `node --test` passes; the CDP battery passes against the live domain.
+5. After a successful round the account no longer exists: `GET /auth/me` returns 401 and
+   the user row is gone from the database.
+
+## Checks
+
+- `cd /home/test/test/atscv-independent && node --test js/*.test.mjs`
+- CDP battery against `https://atscv.djlabs.cl/` (the harness itself).
+- After the Pages build: `sha256` of the live `index.html` equals the committed one.
+
+## Progress
+
+| Task | State | Evidence |
+|---|---|---|
+| Recon | done | Live sha256 = `main`; Pages branch = `main`; burger absent in landing; colour flip traced to `js/inline/index-2.js:10-18` |
+| T1 | done | `f7cdbff` — burger `#menu-toggle` + panel `#mobile-menu`; 375/768 px: burger visible, panel opaco `rgb(244,247,246)`, sin scroll horizontal; 1024 px+: barra de escritorio; Escape cierra; sin errores de consola |
+| T2 | done | `5508494` — `data-skin="indigo"` en las tres superficies; con un stub que devuelve `teal`, el DOM sigue en `indigo` antes y después de `/ui/theme`; `aj:tema` sobrevive a la recarga |
+| T3 | done | `5db7354` — Newsreader + Public Sans autoalojadas (`fonts/`, `document.fonts` = loaded); tarjetas con `shadow-sm` + borde de token; banda de color + banda final; `blue-*` → `brand-*`; `/cv-ats/` con el header de la landing y sin el 404 de `js/tailwind.config.js`; `css/tailwind.css` sin cambios |
+| T4 | pending | |
+| T5 | pending | |
+
+## Route declaration
+
+- T1–T3: **delegated writer** (touches more than two non-trivial files: three HTML
+  surfaces, the inline bundle, the token layer and the build config).
+- T4: **delegated writer** (new harness plus fixtures, needs the CDP reference pattern).
+- T5: **parent** (execution and reporting; failures are fixed by re-entering T1–T4).
+- Mapping/recon was delegated to one narrow read-only mapper; the parent verified the
+  decisive claims itself (sha256 of the live document, Pages configuration, git history).
+
+## Next step
+
+Write T1–T3, publish, then build and run the battery.
