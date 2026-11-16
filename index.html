@@ -258,8 +258,12 @@
     </section>
 
     <!-- ============================== PROBAR (ruta /cv-ats) ============================== -->
-    <section id="probar" class="mx-auto max-w-6xl px-4 pb-16">
-      <div class="overflow-hidden rounded-3xl border border-brand-200 bg-brand-50/60 px-6 py-10 text-center sm:px-10">
+    <!-- Banda de color: el segundo bloque de la página va teñido con el
+         acento, para que el ritmo se lea de un vistazo (hero → banda de
+         color → secciones → banda final). Las tarjetas dentro van en
+         superficie (blanco) con borde y sombra, como en el panel. -->
+    <section id="probar" class="border-y border-brand-200 bg-brand-50/60">
+      <div class="mx-auto max-w-6xl px-4 py-14 text-center">
         <h2 data-reveal class="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Empieza con dos cosas: tu CV y la oferta</h2>
         <p data-reveal class="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-slate-600">
           Sube el PDF o DOCX de tu CV y pega el texto de la oferta que quieres (también puedes subir una captura de la publicación).
@@ -267,14 +271,14 @@
         </p>
 
         <div class="mx-auto mt-7 grid max-w-3xl gap-4 text-left sm:grid-cols-2">
-          <div class="rounded-2xl border border-slate-200 bg-white p-5">
+          <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-700" aria-hidden="true">
               <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h4" /></svg>
             </span>
             <h3 class="mt-3 text-base font-semibold">Tu CV</h3>
             <p class="mt-1.5 text-sm leading-relaxed text-slate-600">PDF, DOCX, TXT o imagen. Puedes revisar y corregir el texto antes de analizarlo.</p>
           </div>
-          <div class="rounded-2xl border border-slate-200 bg-white p-5">
+          <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-brand-50 text-brand-700" aria-hidden="true">
               <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2.5" /><path d="M7 20h10M7 9h6M7 13h4" /></svg>
             </span>
@@ -292,12 +296,12 @@
     </section>
 
     <!-- ============================== CÓMO FUNCIONA ============================== -->
-    <section id="como-funciona" class="border-y border-slate-200 bg-white">
+    <section id="como-funciona" class="border-y border-slate-200">
       <div class="mx-auto max-w-6xl px-4 py-14">
         <h2 data-reveal class="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Cómo funciona</h2>
         <p data-reveal class="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">Tres pasos, sin instalar nada y sin reescribir tu CV a mano.</p>
         <ol class="mt-8 grid gap-5 md:grid-cols-3">
-          <li data-reveal class="group rounded-2xl border border-slate-200 bg-[rgb(var(--c-bg))] p-6">
+          <li data-reveal class="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-600 font-display text-base font-bold text-white">1</span>
                         <div class="mt-4 overflow-hidden rounded-xl">
                         <img src="img/pro-cf1-escaneo.jpg" alt="Persona preparando su postulación desde su computadora" class="h-48 w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105 cursor-zoom-in" loading="lazy" decoding="async" width="1200" height="801" />
@@ -305,7 +309,7 @@
             <h3 class="mt-4 text-base font-semibold">Subes tu CV y la oferta</h3>
             <p class="mt-2 text-sm leading-relaxed text-slate-600">PDF, DOCX o imagen para tu CV; el texto de la oferta lo pegas o lo subes. Puedes revisar lo que leímos antes de continuar.</p>
           </li>
-          <li data-reveal class="group rounded-2xl border border-slate-200 bg-[rgb(var(--c-bg))] p-6">
+          <li data-reveal class="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-600 font-display text-base font-bold text-white">2</span>
                         <div class="mt-4 overflow-hidden rounded-xl">
                         <img src="img/pro-cf2-detalle.jpg" alt="Revisión detallada de los documentos del candidato" class="h-36 w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105 cursor-zoom-in" loading="lazy" decoding="async" width="1200" height="800" />
@@ -313,7 +317,7 @@
             <h3 class="mt-4 text-base font-semibold">Leemos tu perfil y lo que piden</h3>
             <p class="mt-2 text-sm leading-relaxed text-slate-600">Extraemos tus skills y experiencia, y los requisitos y keywords de la oferta. Usamos sólo lo que está escrito: nada inventado.</p>
           </li>
-          <li data-reveal class="group rounded-2xl border border-slate-200 bg-[rgb(var(--c-bg))] p-6">
+          <li data-reveal class="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <span class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-600 font-display text-base font-bold text-white">3</span>
                         <div class="mt-4 overflow-hidden rounded-xl">
                         <img src="img/pro-cf3-resultado.jpg" alt="Informe de brechas con el resultado en pantalla" class="h-36 w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105 cursor-zoom-in" loading="lazy" decoding="async" width="1200" height="800" />
@@ -329,7 +333,7 @@
     <section id="que-ofrece" class="mx-auto max-w-6xl px-4 py-14">
       <h2 data-reveal class="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Qué ofrece</h2>
       <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <div data-reveal class="group rounded-2xl border border-slate-200 bg-white p-6">
+        <div data-reveal class="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700" aria-hidden="true">
             <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 1 9 9" /><path d="M12 3a9 9 0 0 0-9 9h18" /><path d="M12 12l4-4" /><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" /></svg>
           </span>
@@ -339,7 +343,7 @@
           <img src="img/pro-score.jpg" alt="Pantalla con el score de match y las keywords" class="h-36 w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105 cursor-zoom-in" loading="lazy" decoding="async" width="1200" height="800" />
           </div>
         </div>
-        <div data-reveal class="group rounded-2xl border border-slate-200 bg-white p-6">
+        <div data-reveal class="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700" aria-hidden="true">
             <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /><path d="M9 13h6M9 17h4" /></svg>
           </span>
@@ -349,7 +353,7 @@
           <img src="img/pro-hallazgos.jpg" alt="Documentos listos para descargar en el escritorio" class="h-36 w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105 cursor-zoom-in" loading="lazy" decoding="async" width="1200" height="800" />
           </div>
         </div>
-        <div data-reveal class="group rounded-2xl border border-slate-200 bg-white p-6">
+        <div data-reveal class="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700" aria-hidden="true">
             <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-3.6A8 8 0 0 1 3 12v-1a8 8 0 0 1 8-7h2a8 8 0 0 1 8 7z" /><path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01" /></svg>
           </span>
@@ -359,7 +363,7 @@
           <img src="img/pro-referencias.jpg" alt="Consulta de documentación legal de apoyo" class="h-36 w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105 cursor-zoom-in" loading="lazy" decoding="async" width="1200" height="1541" />
           </div>
         </div>
-        <div data-reveal class="group rounded-2xl border border-slate-200 bg-white p-6">
+        <div data-reveal class="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700" aria-hidden="true">
             <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2.5" /><path d="M16 13.5h2.5" /><path d="M3 10h13a0 0 0 0 1 0 0" /><path d="M7 7V5.5A1.5 1.5 0 0 1 8.5 4h7A1.5 1.5 0 0 1 17 5.5V7" /></svg>
           </span>
@@ -369,7 +373,7 @@
           <img src="img/pro-billetera.jpg" alt="Ilustración: pago con tarjeta en terminal" class="h-36 w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105 cursor-zoom-in" loading="lazy" decoding="async" width="1200" height="800" />
           </div>
         </div>
-        <div data-reveal class="group rounded-2xl border border-slate-200 bg-white p-6">
+        <div data-reveal class="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700" aria-hidden="true">
             <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
           </span>
@@ -379,7 +383,7 @@
           <img src="img/pro-uso.jpg" alt="Ilustración: espacios de trabajo separados en la computadora" class="h-36 w-full object-cover transition-transform duration-300 ease-out group-hover:scale-105 cursor-zoom-in" loading="lazy" decoding="async" width="1200" height="801" />
           </div>
         </div>
-        <div data-reveal class="group rounded-2xl border border-slate-200 bg-white p-6">
+        <div data-reveal class="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700" aria-hidden="true">
             <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" /><path d="M9.5 12l1.8 1.8L15 10" /></svg>
           </span>
@@ -400,7 +404,7 @@
     <!-- Ported from the main landing's #contacto (same /contact contract:
          honeypot "website" empty, name/email/message). Copy keeps the
          heart's tone: calm, no blame, no pressure. -->
-    <section id="contacto" class="border-t border-slate-200 bg-white">
+    <section id="contacto" class="border-t border-slate-200">
       <div class="mx-auto max-w-6xl px-4 py-14">
         <div class="grid gap-8 md:grid-cols-2 md:items-start md:gap-10">
           <div>
@@ -408,7 +412,7 @@
             <p class="mt-2 max-w-md text-sm leading-relaxed text-slate-600">
               Cuéntanos qué necesitas; respondemos con calma y sin tecnicismos.
             </p>
-            <p class="mt-5 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm leading-relaxed text-brand-800">
+            <p class="mt-5 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm leading-relaxed text-brand-800 shadow-sm">
               Este formulario es para dudas sobre el servicio. No reemplaza la asesoría de un profesional y por sí solo no genera ninguna acción judicial.
             </p>
             <p class="mt-4 text-xs leading-relaxed text-slate-500">
@@ -416,7 +420,7 @@
             </p>
           </div>
 
-          <div class="rounded-2xl border border-slate-200 bg-[rgb(var(--c-bg))] p-6 shadow-sm sm:p-8">
+          <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
             <form id="contact-form" class="space-y-4" novalidate>
               <!-- Honeypot: hidden from people, tempting for bots. Must stay empty. -->
               <div class="hidden" aria-hidden="true" tabindex="-1">
@@ -458,14 +462,14 @@
     </section>
 
     <!-- ============================== ACCESO / REGISTRO ============================== -->
-    <section id="acceso" class="border-t border-slate-200 bg-white">
+    <section id="acceso" class="border-t border-slate-200">
       <div class="mx-auto max-w-6xl px-4 py-14">
         <!-- Logged-in welcome: hidden by default; when the visitor already
              holds a session the JS below shows this card and hides the
              login/registro cards and this heading (they are never removed
              from markup, just hidden wholesale). -->
         <div id="auth-welcome" hidden class="text-center">
-          <div class="mx-auto max-w-md rounded-2xl border border-slate-200 bg-[rgb(var(--c-bg))] p-8 shadow-sm">
+          <div class="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
             <p data-welcome-text class="text-base font-semibold leading-relaxed">Bienvenido de nuevo: ya tienes una sesión activa; tu panel te espera.</p>
             <a href="app.html"
                class="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-brand-600 px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
@@ -511,7 +515,7 @@
 
         <div class="mt-8 grid gap-6 md:grid-cols-2">
           <!-- LOGIN -->
-          <div id="login" class="rounded-2xl border border-slate-200 bg-[rgb(var(--c-bg))] p-6 sm:p-8">
+          <div id="login" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
             <h3 class="font-display text-xl font-semibold">Iniciar sesión</h3>
             <p class="mt-1 text-sm text-slate-600">¿Ya tienes cuenta? Entra con tu contraseña o pide un enlace para definirla.</p>
             <form id="form-login" class="mt-5 space-y-4">
@@ -556,7 +560,7 @@
           </div>
 
           <!-- REGISTRO -->
-          <div id="registro" class="rounded-2xl border-2 border-brand-200 bg-[rgb(var(--c-bg))] p-6 sm:p-8">
+          <div id="registro" class="rounded-2xl border-2 border-brand-200 bg-white p-6 shadow-sm sm:p-8">
             <div class="flex items-center justify-between gap-2">
               <h3 class="font-display text-xl font-semibold">Crear cuenta</h3>
             </div>
@@ -735,7 +739,7 @@
          bienvenida) y, al crearse la cuenta, el botón queda desbloqueado.
          El servidor sigue siendo la autoridad: POST /payments/orders exige
          sesión de todos modos. -->
-    <section id="recargas" class="border-t border-slate-200 bg-white">
+    <section id="recargas" class="border-t border-slate-200">
       <div class="mx-auto max-w-6xl px-4 py-14">
         <div class="mx-auto max-w-2xl text-center">
           <h2 class="font-display text-2xl font-semibold tracking-tight sm:text-3xl">Elige tu pack y recarga</h2>
@@ -753,7 +757,7 @@
              data-checkout-register-description="Escribe tu nombre, tu correo y una contraseña. Te acreditamos 100 créditos de bienvenida y tu pago sigue aquí mismo."
              data-checkout-wallet-url="app.html"
              data-checkout-wallet-label="Ir a mi panel">
-          <div class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-[rgb(var(--c-bg))] p-6 shadow-sm">
+          <div class="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <p class="text-sm font-semibold text-slate-900">Elige el pack que mejor te calza</p>
 
             <!-- Packs: los mismos montos del panel Billetera. El monto
@@ -761,7 +765,7 @@
             <input type="hidden" data-checkout-amount value="5000">
 
             <div data-checkout-packs class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <button type="button" data-amount="1000" aria-pressed="false" class="topup-pack relative flex flex-col gap-1.5 rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 aria-pressed:border-brand-600 aria-pressed:bg-brand-50 aria-pressed:ring-2 aria-pressed:ring-brand-600">
+              <button type="button" data-amount="1000" aria-pressed="false" class="topup-pack relative flex flex-col gap-1.5 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 aria-pressed:border-brand-600 aria-pressed:bg-brand-50 aria-pressed:ring-2 aria-pressed:ring-brand-600">
                 <span class="text-sm font-semibold text-slate-900">Pack 1 · Arranque</span>
                 <span class="text-lg font-semibold text-slate-900">$1.000 <span class="text-xs font-normal text-slate-500">CLP</span></span>
                 <span class="text-xs font-semibold text-brand-700">→ 1.000 créditos</span>
@@ -772,7 +776,7 @@
                 </span>
               </button>
 
-              <button type="button" data-amount="5000" aria-pressed="true" class="topup-pack relative flex flex-col gap-1.5 rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 aria-pressed:border-brand-600 aria-pressed:bg-brand-50 aria-pressed:ring-2 aria-pressed:ring-brand-600">
+              <button type="button" data-amount="5000" aria-pressed="true" class="topup-pack relative flex flex-col gap-1.5 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 aria-pressed:border-brand-600 aria-pressed:bg-brand-50 aria-pressed:ring-2 aria-pressed:ring-brand-600">
                 <span class="absolute -top-2.5 left-4 rounded-full bg-brand-600 px-2 py-0.5 text-[11px] font-semibold text-white shadow-sm">El más elegido</span>
                 <span class="text-sm font-semibold text-slate-900">Pack 2 · Constante</span>
                 <span class="text-lg font-semibold text-slate-900">$5.000 <span class="text-xs font-normal text-slate-500">CLP</span></span>
@@ -784,7 +788,7 @@
                 </span>
               </button>
 
-              <button type="button" data-amount="10000" aria-pressed="false" class="topup-pack relative flex flex-col gap-1.5 rounded-2xl border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 aria-pressed:border-brand-600 aria-pressed:bg-brand-50 aria-pressed:ring-2 aria-pressed:ring-brand-600">
+              <button type="button" data-amount="10000" aria-pressed="false" class="topup-pack relative flex flex-col gap-1.5 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 aria-pressed:border-brand-600 aria-pressed:bg-brand-50 aria-pressed:ring-2 aria-pressed:ring-brand-600">
                 <span class="text-sm font-semibold text-slate-900">Pack 3 · A fondo</span>
                 <span class="text-lg font-semibold text-slate-900">$10.000 <span class="text-xs font-normal text-slate-500">CLP</span></span>
                 <span class="text-xs font-semibold text-brand-700">→ 10.000 créditos</span>
@@ -804,11 +808,11 @@
             <div class="flex flex-wrap items-center gap-3" role="radiogroup" aria-label="Tipo de documento">
               <span class="text-sm font-medium text-slate-700">Documento:</span>
               <label class="inline-flex items-center gap-1.5 text-sm text-slate-800">
-                <input type="radio" name="checkout-doc-type" value="46" class="accent-blue-600" checked>
+                <input type="radio" name="checkout-doc-type" value="46" class="accent-brand-600" checked>
                 Boleta
               </label>
               <label class="inline-flex items-center gap-1.5 text-sm text-slate-800">
-                <input type="radio" name="checkout-doc-type" value="33" class="accent-blue-600">
+                <input type="radio" name="checkout-doc-type" value="33" class="accent-brand-600">
                 Factura
               </label>
             </div>
@@ -819,28 +823,28 @@
               <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label class="flex flex-col gap-1 text-sm">
                   <span class="font-medium text-slate-700">RUT <span class="text-slate-400">*</span></span>
-                  <input id="checkout-rut" type="text" placeholder="12.345.678-5" maxlength="12" autocomplete="off" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none">
+                  <input id="checkout-rut" type="text" placeholder="12.345.678-5" maxlength="12" autocomplete="off" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-brand-400 focus:outline-none">
                   <span class="text-[11px] text-slate-500">Con punto y guión, ej: 12.345.678-5</span>
                 </label>
                 <label class="flex flex-col gap-1 text-sm">
                   <span class="font-medium text-slate-700">Razón social <span class="text-slate-400">*</span></span>
-                  <input id="checkout-razon" type="text" maxlength="120" autocomplete="organization" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none">
+                  <input id="checkout-razon" type="text" maxlength="120" autocomplete="organization" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-brand-400 focus:outline-none">
                 </label>
                 <label class="flex flex-col gap-1 text-sm">
                   <span class="font-medium text-slate-700">Giro <span class="text-slate-400">*</span></span>
-                  <input id="checkout-giro" type="text" maxlength="120" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none">
+                  <input id="checkout-giro" type="text" maxlength="120" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-brand-400 focus:outline-none">
                 </label>
                 <label class="flex flex-col gap-1 text-sm">
                   <span class="font-medium text-slate-700">Dirección <span class="text-slate-400">*</span></span>
-                  <input id="checkout-direccion" type="text" maxlength="160" autocomplete="street-address" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none">
+                  <input id="checkout-direccion" type="text" maxlength="160" autocomplete="street-address" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-brand-400 focus:outline-none">
                 </label>
                 <label class="flex flex-col gap-1 text-sm">
                   <span class="font-medium text-slate-700">Comuna <span class="text-slate-400">*</span></span>
-                  <input id="checkout-comuna" type="text" maxlength="80" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none">
+                  <input id="checkout-comuna" type="text" maxlength="80" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-brand-400 focus:outline-none">
                 </label>
                 <label class="flex flex-col gap-1 text-sm">
                   <span class="font-medium text-slate-700">Correo de contacto <span class="text-slate-400">*</span></span>
-                  <input id="checkout-email" type="email" maxlength="120" autocomplete="email" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-400 focus:outline-none">
+                  <input id="checkout-email" type="email" maxlength="120" autocomplete="email" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-brand-400 focus:outline-none">
                   <span class="text-[11px] text-slate-500">Aquí llega la factura.</span>
                 </label>
               </div>
@@ -849,7 +853,7 @@
               </p>
             </div>
 
-            <button data-checkout-submit type="button" class="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
+            <button data-checkout-submit type="button" class="w-full rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
               <span data-checkout-submit-label>Crear cuenta para pagar</span>
             </button>
 
@@ -866,7 +870,7 @@
     </section>
   </main>
 
-  <footer class="border-t border-slate-200">
+  <footer class="border-t border-slate-200 bg-slate-50">
     <div class="mx-auto max-w-6xl px-4 py-8 text-center">
       <p class="text-sm leading-relaxed text-slate-600">
         El asistente orienta y organiza información; no emite dictámenes legales ni garantiza resultados.

@@ -7,17 +7,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Sube tu CV y la oferta: te decimos qué le falta a tu perfil para pasar el filtro ATS y adaptamos tu CV.">
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
-  <script src="../js/tailwind.config.js"></script>
   <link rel="stylesheet" href="../css/tokens.css" />
   <script src="../api-config.js?v=3"></script>
   <script src="../js/inline/cv-ats/index-1.js"></script>
+  <script type="module" src="../js/theme.js"></script>
   <link rel="stylesheet" href="../css/tailwind.css">
 </head>
-<body class="min-h-screen">
-  <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
-    <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-      <a href="../" class="font-display text-lg font-semibold text-blue-600 no-underline">CV ATS Match</a>
-      <span class="text-sm text-slate-600">Gratis · sin instalar nada</span>
+<body class="min-h-screen bg-[rgb(var(--c-bg))] font-sans text-[rgb(var(--c-text))] antialiased">
+  <!-- Misma identidad que la landing: marca, acceso al inicio y control de
+       tema. Antes esta página tenía un header pelado (sin logo ni navegación)
+       y por eso se leía como otro producto. -->
+  <header class="sticky top-0 z-40 border-b border-slate-200 bg-[rgb(var(--c-bg))]/75 backdrop-blur-md">
+    <div class="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+      <a href="../" class="flex min-w-0 items-center gap-2.5">
+        <span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white shadow-sm" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+            <path d="M14 3v5h5" />
+            <path d="m9.5 13.5 1.8 1.8L15 11.6" />
+          </svg>
+        </span>
+        <span class="truncate font-display text-lg font-semibold tracking-tight">CV ATS <span class="text-brand-700">Match</span></span>
+      </a>
+      <div class="flex items-center gap-2">
+        <span class="hidden text-sm text-slate-600 sm:block">Gratis · sin instalar nada</span>
+        <button type="button" data-theme-toggle aria-label="Cambiar tema" title="Cambiar tema"
+                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition hover:border-brand-400 hover:text-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
+          <svg class="icon-sun h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2m0 14v2M5.6 5.6l1.4 1.4m10 10l1.4 1.4M3 12h2m14 0h2M5.6 18.4l1.4-1.4m10-10l1.4-1.4M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <svg class="icon-moon h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12.8A8.5 8.5 0 1111.2 3a6.6 6.6 0 009.8 9.8z"/></svg>
+        </button>
+        <a href="../" class="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-400 hover:text-brand-700">Volver al inicio</a>
+      </div>
     </div>
   </header>
 
@@ -39,7 +59,7 @@
           <p class="font-medium text-slate-800">Arrastra tu CV aquí</p>
           <p class="mt-1 text-sm text-slate-600">o haz clic para elegirlo · PDF, DOCX, CSV o una foto del CV impreso</p>
           <div id="cv-progress-wrap" class="mt-3 hidden w-full max-w-xs">
-            <div class="h-1.5 w-full overflow-hidden rounded-full bg-slate-200"><div id="cv-progress" class="h-1.5 w-0 rounded-full bg-blue-600 transition-all duration-200"></div></div>
+            <div class="h-1.5 w-full overflow-hidden rounded-full bg-slate-200"><div id="cv-progress" class="h-1.5 w-0 rounded-full bg-brand-600 transition-all duration-200"></div></div>
             <p id="cv-progress-label" class="mt-1 text-xs text-slate-600">Leyendo tu CV… 0%</p>
           </div>
           <p id="cv-error" class="mt-3 hidden rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700"></p>
@@ -74,7 +94,7 @@
             <p class="font-medium text-slate-800">Arrastra la oferta aquí</p>
             <p class="mt-1 text-sm text-slate-600">PDF de la publicación o captura de pantalla (JPG/PNG)</p>
             <div id="oferta-progress-wrap" class="mt-3 hidden w-full max-w-xs">
-              <div class="h-1.5 w-full overflow-hidden rounded-full bg-slate-200"><div id="oferta-progress" class="h-1.5 w-0 rounded-full bg-blue-600 transition-all duration-200"></div></div>
+              <div class="h-1.5 w-full overflow-hidden rounded-full bg-slate-200"><div id="oferta-progress" class="h-1.5 w-0 rounded-full bg-brand-600 transition-all duration-200"></div></div>
               <p id="oferta-progress-label" class="mt-1 text-xs text-slate-600">Leyendo la oferta… 0%</p>
             </div>
             <p id="oferta-error" class="mt-3 hidden rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700"></p>
@@ -90,7 +110,7 @@
     </section>
 
     <div class="mt-6 flex flex-col items-center gap-2">
-      <button type="button" id="btn-analizar" aria-disabled="true" class="rounded-lg bg-blue-600 px-6 py-3 text-base font-semibold text-white opacity-50 cursor-not-allowed transition hover:bg-blue-700">Analizar Match Gratis</button>
+      <button type="button" id="btn-analizar" aria-disabled="true" class="rounded-lg bg-brand-600 px-6 py-3 text-base font-semibold text-white opacity-50 cursor-not-allowed transition hover:bg-brand-700">Analizar Match Gratis</button>
       <p id="btn-hint" class="text-sm text-slate-600" aria-live="polite">Para continuar, faltan tu CV y la oferta.</p>
     </div>
 
@@ -102,9 +122,9 @@
     </section>
   </main>
 
-  <footer class="border-t border-slate-200 bg-white">
+  <footer class="border-t border-slate-200 bg-slate-50">
     <div class="mx-auto max-w-6xl px-4 py-6 text-sm text-slate-600">
-      <p><a href="../" class="font-medium text-blue-600">Volver al inicio</a></p>
+      <p><a href="../" class="font-medium text-brand-700">Volver al inicio</a></p>
       <p class="mt-2">Borrador generado con asistencia de IA. No constituye asesoría legal ni garantiza resultado. Requiere revisión humana.</p>
     </div>
   </footer>

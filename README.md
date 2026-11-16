@@ -66,6 +66,25 @@ Cuando el informe aparece, la sección de adjuntos se pliega (0fr) para
 dejarle el lugar al informe. El botón **Ocultar / Mostrar adjuntos** está
 siempre a mano y nada se pierde: el texto y los archivos siguen cargados.
 
+## Sistema visual (tokens, tipografías y build)
+
+- **Color de acento**: lo declara el markup (`data-skin="indigo"` en
+  `index.html`, `app.html` y `cv-ats/index.html`). La respuesta de
+  `GET /ui/theme?heart=atscv` ya **no** repinta la página: queda en
+  `window.__HEART_THEME__` para el panel. El visitante elige sólo día o
+  noche, y esa preferencia (`aj:tema`) se aplica **antes del primer paint**
+  en las tres superficies.
+- **Tipografías**: Newsreader (display) y Public Sans (body) están
+  autoalojadas en `fonts/` (subconjunto latin, woff2 variable) y se
+  declaran con `@font-face` en `css/tokens.css`. La CSP (`font-src 'self'
+  data:`) no permite pedirlas a un tercero en runtime: por eso se sirven
+  desde este mismo origen.
+- **`css/tailwind.css` es un artefacto generado**: no se edita a mano. Se
+  reconstruye con `npm run build:css` (Tailwind 3.4.19; con esa versión el
+  rebuild reproduce el archivo versionado byte a byte). Los cortes de ancho
+  que necesita el header (`nav-desktop` / `nav-mobile`) viven en
+  `css/tokens.css`, para no depender de ese artefacto.
+
 ## Contrato con la API
 
 ```text
