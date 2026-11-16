@@ -104,6 +104,17 @@ phone and that repaints its brand colour after load is not shippable to 100 real
 - [ ] **T5 — Run 100 rounds and fix what breaks.** Loop until the battery is green or a
       blocker is proven to be a product limit. Log every round, keep the failure report
       honest.
+- [x] **T6 — Flow return lands on the product wallet with the real outcome.**
+      Owner-reported: cancelling a payment returned to a broken, unstyled page at
+      `https://api.djlabs.cl/wallet`. Root cause: `FlowReturnService::frontFor()` only
+      read the `front_url` database setting (ATSCV has none) and fell back to
+      `Cors::siteUrl('/wallet')`; `FlowProvider::walletReturnUrl()` forced `/#/wallet`,
+      a route the ATSCV front does not have, and the redirect carried no status.
+      Fixed in `api-independent` (commit `42c5ec9`) and in this front (commit `4597ee7`):
+      the return now goes to `https://atscv.djlabs.cl/app.html?pago=<estado>#billetera`,
+      the fallback is always a product front (never the API domain), and the front
+      explains approved / rejected / cancelled / pending / unknown in the wallet.
+      Credits still only move on `APPROVED`, through the signed webhook.
 
 ## Acceptance criteria
 
