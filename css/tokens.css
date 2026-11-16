@@ -324,6 +324,41 @@ h4 {
 }
 
 /* ------------------------------------------------------------------ *
+ * Breakpoints del shell (navegación responsive)
+ *
+ * El CSS compilado (css/tailwind.css) es un artefacto generado y esta
+ * entrega no lo toca, así que los cortes de ancho que necesita el
+ * header se declaran aquí con la misma semántica de Tailwind:
+ *
+ *   .nav-desktop → visible desde 1024px (barra de escritorio)
+ *   .nav-mobile  → visible hasta 1023px (burger y su panel desplegable)
+ *
+ * El prefijo "html ." sube la especificidad por encima de las
+ * utilidades de Tailwind (.hidden, .flex) para que el estado del panel
+ * (abierto/cerrado, manejado por JS) no se imponga a estos cortes.
+ * ------------------------------------------------------------------ */
+html .nav-desktop {
+  display: none;
+}
+
+html .nav-mobile {
+  /* Con el panel abierto puede quedar más alto que la pantalla (teléfono
+     en horizontal): que se desplace por dentro en vez de cortarse. */
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+}
+
+@media (min-width: 1024px) {
+  html .nav-desktop {
+    display: flex;
+  }
+
+  html .nav-mobile {
+    display: none;
+  }
+}
+
+/* ------------------------------------------------------------------ *
  * Motion
  * ------------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {

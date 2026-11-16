@@ -379,8 +379,15 @@
       // toggle carries no data-auth-links, so it is never touched.
       document.querySelectorAll('[data-auth-links]').forEach((el) => el.classList.add('hidden'));
 
+      // Both copies of the "Entrar al panel" CTA follow the session: the
+      // desktop one (#btn-enter-panel) and the mobile copy inside the
+      // burger panel (#btn-enter-panel-mobile). The ids are distinct on
+      // purpose: getElementById only ever returns the first match.
       const enterPanel = document.getElementById('btn-enter-panel');
       if (enterPanel) enterPanel.hidden = false;
+
+      const enterPanelMobile = document.getElementById('btn-enter-panel-mobile');
+      if (enterPanelMobile) enterPanelMobile.hidden = false;
 
       // Acceso: hide login/registro cards and the heading, show the
       // welcome card (markup stays in the DOM, only hidden).
@@ -415,8 +422,13 @@
 
     (async function revealLoggedInState() {
       const enterPanel = document.getElementById('btn-enter-panel');
+      const enterPanelMobile = document.getElementById('btn-enter-panel-mobile');
 
       enterPanel?.addEventListener('click', () => {
+        window.location.assign('app.html');
+      });
+
+      enterPanelMobile?.addEventListener('click', () => {
         window.location.assign('app.html');
       });
 
@@ -452,6 +464,56 @@
       } catch (_) {
         // Network/backend hiccup: keep the visitor landing exactly as it is.
       }
+    })();
+
+    // ============================== MOBILE NAV (BURGER) ==============================
+    // Menú desplegable del header para teléfono y tablet (< 1024px). El
+    // botón (#menu-toggle) y el panel (#mobile-menu) son markup estático de
+    // la landing: se cablean AL ARRANCAR, nunca dentro de un bloque
+    // condicional a la sesión — así murió el burger del hermano: el wiring
+    // vivía en el camino de "usuario con sesión" y el menú quedaba muerto
+    // para el visitante anónimo, que es justo quien lo necesita.
+    (function wireMobileNav() {
+      const toggle = document.getElementById('menu-toggle');
+      const panel = document.getElementById('mobile-menu');
+      const iconOpen = document.getElementById('menu-icon-open');
+      const iconClose = document.getElementById('menu-icon-close');
+
+      if (!toggle || !panel) return;
+
+      function openMenu() {
+        panel.classList.remove('hidden');
+        toggle.setAttribute('aria-expanded', 'true');
+        toggle.setAttribute('aria-label', 'Cerrar menú');
+        toggle.setAttribute('title', 'Cerrar menú');
+        if (iconOpen) iconOpen.classList.add('hidden');
+        if (iconClose) iconClose.classList.remove('hidden');
+      }
+
+      function closeMenu() {
+        panel.classList.add('hidden');
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('aria-label', 'Abrir menú');
+        toggle.setAttribute('title', 'Abrir menú');
+        if (iconOpen) iconOpen.classList.remove('hidden');
+        if (iconClose) iconClose.classList.add('hidden');
+      }
+
+      toggle.addEventListener('click', () => {
+        if (panel.classList.contains('hidden')) openMenu();
+        else closeMenu();
+      });
+
+      // Seguir un enlace cierra el panel: si no, el menú queda abierto
+      // encima del contenido al saltar al ancla de la sección.
+      panel.querySelectorAll('a[href]').forEach((link) => {
+        link.addEventListener('click', closeMenu);
+      });
+
+      // Escape cierra el panel (mismo criterio que los modales legales).
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closeMenu();
+      });
     })();
 
     // ============================== SCAN-FIRST FLOW ==============================
