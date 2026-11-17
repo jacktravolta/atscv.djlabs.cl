@@ -95,12 +95,27 @@ phone and that repaints its brand colour after load is not shippable to 100 real
       elevation as the panel, unify the card background logic across sections, give the
       page a section rhythm, unify the accent label (`brand-*`), and give `/cv-ats/` the
       same header identity as the landing.
-- [ ] **T4 — Live CDP battery harness.** `tests/atscv-battery.mjs` driving a real Chrome
+- [x] **T4 — Live CDP battery harness.** `tests/atscv-battery.mjs` driving a real Chrome
       over CDP against `https://atscv.djlabs.cl/`: contact form → register → login →
       panel → CV + offer in the three input modes (PDF upload, URL, typed text) →
       match report → template selection → adapted CV + cover letter (DOCX and PDF) →
       **delete the account from the front** (typed `BORRAR` confirmation) → verify the
       account is gone → close the session. One round = one new user, one deletion.
+      Written in `a0e671d` (branch `feat/atscv-bateria-100-cdp`, **not published**): a
+      self-contained CDP client on Node 22's global `WebSocket`, no new dependencies,
+      resumable JSONL log under `tests/artifacts/` (git-ignored), one round per user,
+      and the deletion check runs in the database as well as in the API.
+- [x] **T4b — API: resolve relative redirects before the SSRF recheck.**
+      `UrlAnalyzerService::fetch()` copied the raw `Location` header into `final_url`, so
+      a **relative** redirect (`Location: /ruta`) reached `assertSafeUrl()` without a
+      scheme or host and the read failed with `URL_INVALID`. Every site that redirects
+      relatively was affected, not only the fixtures: GitHub Pages answers
+      `307 location: /tests/fixtures/cv-battery` for the published fixture.
+      Fixed in `api-independent` (commit `314fb42`, live in production): each `Location`
+      is resolved against the effective URL of the previous hop, the absolute final URL
+      still goes through the anti-SSRF check, and `tests/url_analyzer_redirect_test.php`
+      proves the relative hop works, the absolute/protocol-relative forms resolve and a
+      redirect to an internal target is still rejected (fail-closed).
 - [ ] **T5 — Run 100 rounds and fix what breaks.** Loop until the battery is green or a
       blocker is proven to be a product limit. Log every round, keep the failure report
       honest.
@@ -142,18 +157,23 @@ phone and that repaints its brand colour after load is not shippable to 100 real
 | T1 | done | `f7cdbff` — burger `#menu-toggle` + panel `#mobile-menu`; 375/768 px: burger visible, panel opaco `rgb(244,247,246)`, sin scroll horizontal; 1024 px+: barra de escritorio; Escape cierra; sin errores de consola |
 | T2 | done | `5508494` — `data-skin="indigo"` en las tres superficies; con un stub que devuelve `teal`, el DOM sigue en `indigo` antes y después de `/ui/theme`; `aj:tema` sobrevive a la recarga |
 | T3 | done | `5db7354` — Newsreader + Public Sans autoalojadas (`fonts/`, `document.fonts` = loaded); tarjetas con `shadow-sm` + borde de token; banda de color + banda final; `blue-*` → `brand-*`; `/cv-ats/` con el header de la landing y sin el 404 de `js/tailwind.config.js`; `css/tailwind.css` sin cambios |
-| T4 | pending | |
-| T5 | pending | |
+| T4 | done | `a0e671d` — `tests/atscv-battery.mjs` (self-contained CDP client, Node 22 global `WebSocket`, no new deps) + `tests/README-battery.md`; smoke round green: 1/1 ok, account deleted and verified (`users=0`, 20 user tables empty, `account_deletion_log` keeps the deletion by design), CV PDF 31.788 B and carta PDF 23.776 B, both `%PDF`; the URL mode failed → traced to the API, not the harness (see T4b) |
+| T4b | done | `314fb42` (api-independent, live) — relative `Location` resolved against the effective URL before the SSRF recheck; `tests/url_analyzer_redirect_test.php` 13/13; verified live: `POST /v1/cv-ats/desde-url` on the published fixture now answers 200 with the CV and offer text, and a loopback target is still rejected (400) |
+| T5 | in progress | Three-mode validation running (one round per mode), then the 100-round loop |
 
 ## Route declaration
 
 - T1–T3: **delegated writer** (touches more than two non-trivial files: three HTML
   surfaces, the inline bundle, the token layer and the build config).
 - T4: **delegated writer** (new harness plus fixtures, needs the CDP reference pattern).
+- T4b: **delegated writer** in `api-independent` (service + regression test); the parent
+  verified the root cause, the live behaviour and the untouched anti-SSRF guard.
 - T5: **parent** (execution and reporting; failures are fixed by re-entering T1–T4).
 - Mapping/recon was delegated to one narrow read-only mapper; the parent verified the
   decisive claims itself (sha256 of the live document, Pages configuration, git history).
 
 ## Next step
 
-Write T1–T3, publish, then build and run the battery.
+Run the three-mode validation (one round per mode), then the 100-round loop against the
+live domain with the resumable JSONL log, and report the rounds that passed, the real
+LLM calls and the accounts deleted.
