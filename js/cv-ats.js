@@ -12,7 +12,6 @@
       match: null,
       busy: false,
       ofertaTracked: false,
-      inputsCollapsed: false,
     };
 
     const el = {
@@ -926,87 +925,6 @@
     }
 
     /**
-     * The inputs (your CV and the offer) collapse when the report arrives.
-     *
-     * Two reasons: the report IS the answer, and the attachments stop
-     * taking the whole screen. One click brings them back and nothing is
-     * lost: the text and the files stay loaded.
-     */
-    function activarSeccionMinimizable() {
-      if (document.getElementById('cv-ats-inputs-wrap')) return;
-
-      const cardCv = document.getElementById('card-cv');
-      const grid = cardCv ? cardCv.closest('section') : null;
-      if (!grid) return;
-
-      // The wrapper that can shrink to nothing: the classic
-      // grid-template-rows 1fr -> 0fr transition.
-      const wrapper = document.createElement('div');
-      wrapper.id = 'cv-ats-inputs-wrap';
-      wrapper.className = 'grid transition-[grid-template-rows] duration-300 ease-out';
-      wrapper.style.gridTemplateRows = '1fr';
-
-      const interior = document.createElement('div');
-      interior.className = 'overflow-hidden';
-
-      grid.parentNode.insertBefore(wrapper, grid);
-      wrapper.appendChild(interior);
-      interior.appendChild(grid);
-
-      // The toggle lives next to the heading of the block (never inside a
-      // card: the cards have their own headings).
-      const titulo = Array.from(document.querySelectorAll('h1, h2, h3')).find((nodo) => {
-        if (nodo.closest('#card-cv') || nodo.closest('#card-oferta')) return false;
-        return !!(grid.compareDocumentPosition(nodo) & Node.DOCUMENT_POSITION_PRECEDING);
-      });
-
-      if (!titulo || !titulo.parentNode) return;
-
-      const bloque = titulo.parentNode;
-      const fila = document.createElement('div');
-      fila.className = 'flex flex-wrap items-start justify-between gap-3';
-
-      bloque.parentNode.insertBefore(fila, bloque);
-      fila.appendChild(bloque);
-      bloque.classList.add('min-w-0', 'flex-1');
-
-      const boton = document.createElement('button');
-      boton.type = 'button';
-      boton.id = 'cv-ats-toggle-inputs';
-      boton.className = 'inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-300 hover:text-brand-700';
-      boton.setAttribute('aria-expanded', 'true');
-      boton.setAttribute('aria-controls', 'cv-ats-inputs-wrap');
-      boton.innerHTML =
-        '<span class="whitespace-nowrap">Ocultar adjuntos</span>' +
-        '<svg class="h-4 w-4 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
-          'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
-
-      fila.appendChild(boton);
-      el.toggleInputs = boton;
-      boton.addEventListener('click', () => setInputsCollapsed(!state.inputsCollapsed));
-    }
-
-    /**
-     * Show or hide the attachments area. Nothing inside is touched: the
-     * text and the files stay loaded, they are only out of sight.
-     */
-    function setInputsCollapsed(colapsado) {
-      state.inputsCollapsed = colapsado;
-
-      const wrapper = document.getElementById('cv-ats-inputs-wrap');
-      if (wrapper) wrapper.style.gridTemplateRows = colapsado ? '0fr' : '1fr';
-
-      const boton = el.toggleInputs;
-      if (!boton) return;
-
-      boton.setAttribute('aria-expanded', String(!colapsado));
-      const texto = boton.querySelector('span');
-      if (texto) texto.textContent = colapsado ? 'Mostrar adjuntos' : 'Ocultar adjuntos';
-      const chevron = boton.querySelector('svg');
-      if (chevron) chevron.classList.toggle('rotate-180', colapsado);
-    }
-
-    /**
      * The MODAL with the preview of one template.
      *
      * The modal is built by the module (not by the page markup) so the
@@ -1329,9 +1247,20 @@
       animateDonut(coberturaKeywords(data).porcentaje);
       track('cv_ats_match_score', { score: score });
 
-      // The report is the answer: the attachments fold away to give it the
-      // room, and the person lands right on the result.
-      setInputsCollapsed(true);
+      // El informe queda disponible como contexto del chat: con el switch
+      // "Usar mi informe como contexto" activo, el asistente responde siempre
+      // sobre este análisis (sin cobrar una llamada extra).
+      document.dispatchEvent(new CustomEvent('cv-ats:informe', {
+        detail: {
+          texto: String(markdown || '').trim(),
+          puntaje: score,
+          faltantes: keywords.missing || [],
+        },
+      }));
+
+      // El informe es la respuesta: la persona aterriza directo en el
+      // resultado. Los bloques de entrada (tu CV y la oferta) siguen a la
+      // vista, con lo que ya subió cargado.
       el.resultados.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
       const generateButton = document.getElementById('btn-generar');
@@ -1554,7 +1483,6 @@
     construirTarjetaCv();
     activarZonasDeCarga();
     inyectarBloqueUrl();
-    activarSeccionMinimizable();
 
     // The history reopens a stored report with the very same painter the
     // fresh report uses, so both look identical.

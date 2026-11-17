@@ -89,7 +89,6 @@
             <a href="index.html" class="shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700">Home</a>
             <button type="button" class="nav-item shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium bg-brand-600 text-white shadow-sm transition" data-panel="inicio">Panel</button>
             <button type="button" class="nav-item shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="billetera">Billetera</button>
-            <button type="button" class="nav-item shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="conversaciones">Conversaciones</button>
             <button type="button" class="nav-item shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="uso">Uso</button>
             <!-- Gestión vendedor: solo cuentas con role='vendedor' (el arranque
                  lo revela tras /auth/me; para todos los demás queda oculto). -->
@@ -180,7 +179,6 @@
       <nav id="header-nav-mobile" class="md:hidden flex w-full flex-nowrap gap-1 overflow-x-auto border-t border-slate-200 py-2" aria-label="Paneles de la aplicación">
         <button type="button" class="nav-item shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium bg-brand-600 text-white shadow-sm transition" data-panel="inicio">Panel</button>
         <button type="button" class="nav-item shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="billetera">Billetera</button>
-        <button type="button" class="nav-item shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="conversaciones">Conversaciones</button>
         <button type="button" class="nav-item shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-brand-50 hover:text-brand-700" data-panel="uso">Uso</button>
         <!-- La copia móvil no repite el id de escritorio: el arranque la
              revela por rol mediante .nav-item[data-panel]. -->
@@ -373,12 +371,24 @@
       <!-- Chat IA: el informe (o el aviso de fallo) se entrega como
            conversación y puede continuarse aquí -->
       <section id="chat-section" class="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
-        <div>
-          <h2 class="text-base font-semibold text-slate-900">Conversa sobre tu análisis</h2>
-          <p class="text-xs leading-relaxed text-slate-500">
-            Cada informe queda como contexto de esta conversación: pregúntale al asistente lo que necesites.
-            Cada mensaje consume créditos según la tarifa vigente; tu saldo se muestra al recibir la respuesta.
-          </p>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h2 class="text-base font-semibold text-slate-900">Conversa sobre tu análisis</h2>
+            <p class="mt-1 text-xs leading-relaxed text-slate-500">
+              Con el interruptor activo, cada respuesta del asistente tiene en cuenta tu informe.
+              Cada mensaje consume créditos según la tarifa vigente; tu saldo se muestra al recibir la respuesta.
+            </p>
+          </div>
+          <!-- Interruptor de contexto: activo por defecto. Cuando está apagado,
+               el asistente responde en general (sin el informe encima). -->
+          <button type="button" id="chat-contexto-switch" role="switch" aria-checked="true"
+                  class="inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-brand-300 hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-300"
+                  title="Usar tu informe como contexto en cada respuesta">
+            <span class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full bg-brand-600 transition" data-switch-pista>
+              <span class="inline-block h-4 w-4 translate-x-4 rounded-full bg-white shadow transition" data-switch-boton></span>
+            </span>
+            <span data-switch-texto>Usar mi informe como contexto</span>
+          </button>
         </div>
         <div id="chat-panel" style="height: 560px; max-height: 70vh"></div>
       </section>
@@ -1255,7 +1265,7 @@
 
   <script src="js/inline/app-5.js"></script>
 
-  <script type="module" src="js/cv-ats.js?v=12"></script>
+  <script type="module" src="js/cv-ats.js?v=13"></script>
   <script type="module" src="js/cv-ats-history.js?v=3"></script>
 </body>
 </html>

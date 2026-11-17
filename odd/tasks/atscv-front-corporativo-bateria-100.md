@@ -130,6 +130,37 @@ phone and that repaints its brand colour after load is not shippable to 100 real
       the fallback is always a product front (never the API domain), and the front
       explains approved / rejected / cancelled / pending / unknown in the wallet.
       Credits still only move on `APPROVED`, through the signed webhook.
+- [x] **T7 — Panel sin restos del producto anterior + asistente con voz propia.**
+      Owner-reported (live screenshots): the header still showed an **"Ocultar
+      adjuntos"** button, the **"Conversaciones"** link, a messy row of chat action
+      icons, and the assistant answered with a curt, canned 5-point list.
+      - The "Ocultar adjuntos" button was the leftover of the collapsible-inputs
+        feature: it looked for "the previous heading" with
+        `querySelectorAll('h1, h2, h3')`, grabbed the panel's `<h1>` in the header and
+        therefore rendered **in the top bar**. The whole feature is gone (wrapper,
+        button, `setInputsCollapsed`, `state.inputsCollapsed`); the CV and offer
+        blocks stay visible and behave as before.
+      - "Conversaciones" is gone from the desktop nav and from the mobile pill strip
+        (`#panel-conversaciones` stays: the informe deep link still opens it).
+      - The chat action icons are now one single strip per bubble (Escuchar, Editar y
+        descargar, Eliminar), same size, same style, each with its tooltip; the icons
+        went from 14 px unlabelled to 16 px grouped.
+      - New switch **"Usar mi informe como contexto"** in `#chat-section`, **active by
+        default**: the analyzer announces its report (`cv-ats:informe`) and every chat
+        message carries that report as context — no extra call, no extra charge. Off
+        means general employment answers.
+      - **First entry**: a registered user who has never opened the panel lands
+        straight on `app.html` (flag `aj:primer-acceso-panel`); after that the landing
+        stays reachable, and flows with return parameters (`?pago=`, `?token=`, anchors)
+        are never redirected.
+      - **Assistant voice** (in `api-independent`): the `atscv` persona's mandatory
+        5-point format (`**1. En simple:** … **2. Lo que te falta:** …`) was what made
+        every answer feel like a form. The persona now keeps every hard rule (only the
+        delivered data, only the delivered BCN context, the exact "no base legal"
+        sentence, cite norma + artículo, never promise the ATS result) and replaces the
+        fixed shape with a flexible one: adapt the form to the question, always bring
+        something concrete, vary the opening, one clarifying question at most, warm
+        without pressure.
 
 ## Acceptance criteria
 
@@ -165,6 +196,7 @@ phone and that repaints its brand colour after load is not shippable to 100 real
 | T4 | done | `a0e671d` — `tests/atscv-battery.mjs` (self-contained CDP client, Node 22 global `WebSocket`, no new deps) + `tests/README-battery.md`; smoke round green: 1/1 ok, account deleted and verified (`users=0`, 20 user tables empty, `account_deletion_log` keeps the deletion by design), CV PDF 31.788 B and carta PDF 23.776 B, both `%PDF`; the URL mode failed → traced to the API, not the harness (see T4b) |
 | T4b | done | `314fb42` (api-independent, live) — relative `Location` resolved against the effective URL before the SSRF recheck; `tests/url_analyzer_redirect_test.php` 13/13; verified live: `POST /v1/cv-ats/desde-url` on the published fixture now answers 200 with the CV and offer text, and a loopback target is still rejected (400) |
 | T5 | in progress | Three-mode validation running (one round per mode), then the 100-round loop |
+| T7 | done | Front: `cv-ats.js` (whole collapsible-inputs feature removed), `app.html` (nav without "Conversaciones", switch `#chat-contexto-switch`), `chat-widget.js` (single action strip per bubble, 16 px icons, `contextProvider`), `app-4.js` (switch wiring + informe context + first-entry flag), `index-4.js` (first entry → panel); local Chrome: zero "Ocultar adjuntos", nav `Home · Panel · Billetera · Uso`, switch `aria-checked=true` and toggles/persists, no console errors. API: `heart_personas` row `atscv/authenticated` rewritten (1 652 → 2 927 chars), verified in place; the previous prompt stays in `prompt_audits` |
 
 ## Route declaration
 
