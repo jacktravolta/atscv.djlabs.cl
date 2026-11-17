@@ -1,7 +1,6 @@
 /**
- * History of the CV ATS comparisons. The module is loaded by BOTH surfaces
- * (the card inside the panel and the standalone /cv-ats/ page), so it builds
- * every piece of markup by itself.
+ * History of the CV ATS comparisons. The module builds every piece of markup
+ * by itself so the panel can render the history without duplicated markup.
  */
 
 const HISTORIAL_BASE = '/v1/cv-ats';

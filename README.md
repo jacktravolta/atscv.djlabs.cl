@@ -13,11 +13,11 @@ panel, pero la primera tarjeta es el analizador.
 |---|---|
 | `/` | Landing del producto (inicio, cómo funciona, qué ofrece, CTA) |
 | `/app.html` | Panel del usuario: el analizador como **primera tarjeta**, chat, billetera, archivos |
-| `/cv-ats/` | El analizador solo, para compartir el link sin entrar al panel |
 
-El analizador es **el mismo módulo** (`js/cv-ats.js`) en las dos rutas: el
-modal de vista previa, las gráficas, la animación de carga, el bloque de URL
-y el colapso de la sección de adjuntos se comportan igual en todas partes.
+El analizador vive en el panel como primera tarjeta y usa el módulo
+(`js/cv-ats.js`): el modal de vista previa, las gráficas, la animación de
+carga, el bloque de URL y el colapso de la sección de adjuntos se comportan
+de forma consistente dentro del panel.
 
 ## Cómo correrlo en local
 
@@ -69,11 +69,11 @@ siempre a mano y nada se pierde: el texto y los archivos siguen cargados.
 ## Sistema visual (tokens, tipografías y build)
 
 - **Color de acento**: lo declara el markup (`data-skin="indigo"` en
-  `index.html`, `app.html` y `cv-ats/index.html`). La respuesta de
+  `index.html` y `app.html`). La respuesta de
   `GET /ui/theme?heart=atscv` ya **no** repinta la página: queda en
   `window.__HEART_THEME__` para el panel. El visitante elige sólo día o
   noche, y esa preferencia (`aj:tema`) se aplica **antes del primer paint**
-  en las tres superficies.
+  en las dos superficies.
 - **Tipografías**: Newsreader (display) y Public Sans (body) están
   autoalojadas en `fonts/` (subconjunto latin, woff2 variable) y se
   declaran con `@font-face` en `css/tokens.css`. La CSP (`font-src 'self'
@@ -111,7 +111,7 @@ bash scripts/publish-atscv-front.sh             # copiar + verificar
 ```
 
 Copia el front a `api.djlabs.cl/public/atscv/` y verifica que `/atscv/`,
-`/atscv/app.html`, `/atscv/js/cv-ats.js` y `/atscv/cv-ats/` respondan 200.
+`/atscv/app.html` y `/atscv/js/cv-ats.js` respondan 200.
 El front es autocontenido (rutas relativas), así que funciona desde
 cualquier subdirectorio sin tocar `public/js/` de otros productos.
 

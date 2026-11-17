@@ -2,9 +2,8 @@
 
     const STEP2_DELAY_MS = 880; // ~40% of the artificial timeline
 
-    // The module is shared by the standalone /cv-ats/ page and by the card
-    // inside the user panel, so the links to the landing are resolved from
-    // the module's own location instead of from the page that loaded it.
+    // The module runs inside the user panel. Resolve links to the landing from
+    // the module's own location so they keep working regardless of the page URL.
     const APP_ROOT = new URL('../', import.meta.url).href;
 
     const state = {
@@ -1011,7 +1010,7 @@
      * The MODAL with the preview of one template.
      *
      * The modal is built by the module (not by the page markup) so the
-     * panel and the standalone /cv-ats/ route behave exactly the same.
+     * panel can render the preview without duplicated markup.
      */
     function asegurarModal() {
       let modal = document.getElementById('cv-ats-modal');
