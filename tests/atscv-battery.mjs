@@ -29,6 +29,12 @@ const ARTIFACTS = path.join(ROOT, 'tests', 'artifacts');
 const DEFAULT_BASE_URL = 'https://atscv.djlabs.cl/';
 const UI_TIMEOUT_MS = 60_000;
 const LLM_TIMEOUT_MS = 5 * 60_000;
+// El análisis encadena TRES llamadas de IA y el presupuesto del proveedor es de
+// 90 s por llamada (`ai.total_budget_s`), así que el peor caso del producto es
+// de ~4,5-5,5 min. El front lo dice al usuario ("puede tomar unos minutos") y
+// no corta la petición. Con un techo de 5 min el arnés abandonaba antes que
+// el producto: 8 min cubren el peor caso real con margen.
+const MATCH_TIMEOUT_MS = 8 * 60_000;
 const HEART = 'atscv';
 const MODOS = ['archivo', 'url', 'texto'];
 
@@ -456,11 +462,21 @@ class CdpPage {
     registrarEvento('file_assignment', { selector, file: nombre, estado });
   }
 
+  /**
+   * Busca una respuesta HTTP capturada a partir de `afterIndex` (INCLUSIVE).
+   *
+   * El índice se toma como `page.responses.length` ANTES de disparar la
+   * acción, así que la respuesta que nos interesa aterriza exactamente en
+   * `afterIndex`. Cortar en `afterIndex + 1` se saltaba precisamente esa
+   * respuesta (y solo fallaba cuando no hubo otro tráfico de red entre
+   * medio: por eso el modo URL fallaba y los demás pasos pasaban).
+   */
   async response(fragment, afterIndex = -1, timeoutMs = UI_TIMEOUT_MS) {
     const limite = Date.now() + timeoutMs;
+    const desde = Math.max(0, afterIndex);
     while (Date.now() < limite) {
       const encontrada = [...this.responses]
-        .slice(afterIndex + 1)
+        .slice(desde)
         .reverse()
         .find((item) => item.url.includes(fragment) && item.method !== 'OPTIONS');
       if (encontrada) return encontrada;
@@ -1016,15 +1032,15 @@ async function pasoAnalizar(page, roundDir) {
   await page.click('#btn-analizar');
   await page.waitFor(
     `!!document.querySelector('#btn-generar') || !!document.querySelector('#resultados [role="alert"]')`,
-    LLM_TIMEOUT_MS,
+    MATCH_TIMEOUT_MS,
     'informe ATS (operación LLM)',
   );
-  const respuesta = await page.response('/v1/cv-ats/match', indice, LLM_TIMEOUT_MS);
+  const respuesta = await page.response('/v1/cv-ats/match', indice, MATCH_TIMEOUT_MS);
   guardarRespuesta(roundDir, 'match', respuesta);
   if (!respuesta || respuesta.status !== 200) {
     throw new Error(`El análisis no respondió HTTP 200: ${respuesta?.status ?? 'sin respuesta'}`);
   }
-  await page.waitFor(`!!document.querySelector('#btn-generar')`, LLM_TIMEOUT_MS, 'botón Generar');
+  await page.waitFor(`!!document.querySelector('#btn-generar')`, MATCH_TIMEOUT_MS, 'botón Generar');
   const score = await page.evaluate(`return (document.querySelector('#gauge-number')?.textContent || '').trim();`);
   return { httpStatus: respuesta.status, score, llmCallsEstimated: 3 };
 }
