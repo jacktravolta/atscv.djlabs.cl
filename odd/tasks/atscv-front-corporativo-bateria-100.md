@@ -195,8 +195,9 @@ phone and that repaints its brand colour after load is not shippable to 100 real
 | T3 | done | `5db7354` — Newsreader + Public Sans autoalojadas (`fonts/`, `document.fonts` = loaded); tarjetas con `shadow-sm` + borde de token; banda de color + banda final; `blue-*` → `brand-*`; `/cv-ats/` con el header de la landing y sin el 404 de `js/tailwind.config.js`; `css/tailwind.css` sin cambios |
 | T4 | done | `a0e671d` — `tests/atscv-battery.mjs` (self-contained CDP client, Node 22 global `WebSocket`, no new deps) + `tests/README-battery.md`; smoke round green: 1/1 ok, account deleted and verified (`users=0`, 20 user tables empty, `account_deletion_log` keeps the deletion by design), CV PDF 31.788 B and carta PDF 23.776 B, both `%PDF`; the URL mode failed → traced to the API, not the harness (see T4b) |
 | T4b | done | `314fb42` (api-independent, live) — relative `Location` resolved against the effective URL before the SSRF recheck; `tests/url_analyzer_redirect_test.php` 13/13; verified live: `POST /v1/cv-ats/desde-url` on the published fixture now answers 200 with the CV and offer text, and a loopback target is still rejected (400) |
-| T5 | in progress | Three-mode validation running (one round per mode), then the 100-round loop |
+| T5 | done | 100/100 rounds against `https://atscv.djlabs.cl/` — **98 OK / 2 failed** (round 42: the harness died when the branch was switched under it; round 99: the chat returned no response after 5 min); 99 accounts deleted and verified (`users=0`), 198 PDFs verified (`%PDF`), 296 HTTP LLM operations observed, 100 contact emails sent; log `tests/artifacts/battery-bateria100-041956.jsonl` + `summary.json` |
 | T7 | done | Front: `cv-ats.js` (whole collapsible-inputs feature removed), `app.html` (nav without "Conversaciones", switch `#chat-contexto-switch`), `chat-widget.js` (single action strip per bubble, 16 px icons, `contextProvider`), `app-4.js` (switch wiring + informe context + first-entry flag), `index-4.js` (first entry → panel); local Chrome: zero "Ocultar adjuntos", nav `Home · Panel · Billetera · Uso`, switch `aria-checked=true` and toggles/persists, no console errors. API: `heart_personas` row `atscv/authenticated` rewritten (1 652 → 2 927 chars), verified in place; the previous prompt stays in `prompt_audits` |
+| T8 | done | **Correo con la marca del producto + links como botón + SEO.** El aviso de contacto llegaba con el logo `djlabs.cl` en tema oscuro (evidencia del dueño). Causa doble: el front no mandaba el `heart` en `POST /contact`, y el heart `atscv` no tenía marca propia en el código. Ahora: `index-4.js` manda `heart: 'atscv'`; el API registra el emblema propio (`resources/brand/atscv-logo.png` + `BrandAssets`), el título `CV ATS Match`, la skin `indigo` (la del front) y el tema `dia`. **Todo link de cualquier correo sale como botón con el acento de SU heart** (shell + decorador de mailer; la URL no se toca y el texto plano la conserva). SEO: `sitemap.xml` (la landing, única página indexable), `robots.txt` propio con la línea `Sitemap:` (antes respondía el de Cloudflare), `canonical`, `robots index/follow`, Open Graph + Twitter Card con portada 1200×630 y datos estructurados `Organization`/`WebSite`/`SoftwareApplication`; panel, contraseña y verificación con `noindex`. Verificado en vivo: `/sitemap.xml` 200, `/robots.txt` 200, meta y portada 200, correo real enviado con `heart=atscv` (asunto "Nuevo mensaje desde CV ATS Match") |
 
 ## Route declaration
 
@@ -211,6 +212,18 @@ phone and that repaints its brand colour after load is not shippable to 100 real
 
 ## Next step
 
-Run the three-mode validation (one round per mode), then the 100-round loop against the
-live domain with the resumable JSONL log, and report the rounds that passed, the real
-LLM calls and the accounts deleted.
+The 100-round loop is finished (98 OK / 2 failed, see T5) and the front is published with
+the panel cleanup, the assistant voice, the product-branded mail and the SEO assets.
+
+Two things are still open:
+1. **The Flow webhook audit** (owner request): map `FlowProvider` / `FlowReturnService` /
+   `PaymentService` and the `POST /payments/webhook/flow` route, and explain why a
+   cancelled order stays `PENDING` with `verified_at = NULL` (55 `PENDING` vs 18 `APPROVED`
+   in the table). The resolution must only trust the signed webhook; no money moves outside it.
+2. **Round 99** (chat without response after 5 min) and **round 42** (the harness died when
+   the branch was switched under it) need one isolated reproduction each before they can be
+   closed as either a product defect or a harness artefact.
+
+The sitemap is published at `https://atscv.djlabs.cl/sitemap.xml` (the only indexable page
+is the landing); the panel, the password reset and the email verification carry `noindex`.
+The owner can now submit the sitemap in Google Search Console.
