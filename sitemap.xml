@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CV ATS Match — https://atscv.djlabs.cl/
+  Solo se listan las páginas PÚBLICAS e indexables del sitio. El panel
+  (/app), la recuperación de contraseña (/contrasena.html) y la verificación
+  de correo (/verificar.html) son pantallas de la aplicación: llevan
+  "noindex" en su propia cabecera y no se anuncian aquí.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://atscv.djlabs.cl/</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>

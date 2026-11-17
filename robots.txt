@@ -1,0 +1,11 @@
+# CV ATS Match — https://atscv.djlabs.cl/
+#
+# El sitio es público y se permite indexarlo. El panel (/app) exige cuenta y
+# además lleva "noindex" en su propia cabecera: NO se bloquea con Disallow
+# (un URL bloqueado puede quedar indexado igual, sin su noindex), se deja
+# que el rastreador lea la etiqueta.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://atscv.djlabs.cl/sitemap.xml
