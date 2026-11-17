@@ -95,12 +95,27 @@ phone and that repaints its brand colour after load is not shippable to 100 real
       elevation as the panel, unify the card background logic across sections, give the
       page a section rhythm, unify the accent label (`brand-*`), and give `/cv-ats/` the
       same header identity as the landing.
-- [ ] **T4 — Live CDP battery harness.** `tests/atscv-battery.mjs` driving a real Chrome
+- [x] **T4 — Live CDP battery harness.** `tests/atscv-battery.mjs` driving a real Chrome
       over CDP against `https://atscv.djlabs.cl/`: contact form → register → login →
       panel → CV + offer in the three input modes (PDF upload, URL, typed text) →
       match report → template selection → adapted CV + cover letter (DOCX and PDF) →
       **delete the account from the front** (typed `BORRAR` confirmation) → verify the
       account is gone → close the session. One round = one new user, one deletion.
+      Written in `a0e671d` (branch `feat/atscv-bateria-100-cdp`, **not published**): a
+      self-contained CDP client on Node 22's global `WebSocket`, no new dependencies,
+      resumable JSONL log under `tests/artifacts/` (git-ignored), one round per user,
+      and the deletion check runs in the database as well as in the API.
+- [x] **T4b — API: resolve relative redirects before the SSRF recheck.**
+      `UrlAnalyzerService::fetch()` copied the raw `Location` header into `final_url`, so
+      a **relative** redirect (`Location: /ruta`) reached `assertSafeUrl()` without a
+      scheme or host and the read failed with `URL_INVALID`. Every site that redirects
+      relatively was affected, not only the fixtures: GitHub Pages answers
+      `307 location: /tests/fixtures/cv-battery` for the published fixture.
+      Fixed in `api-independent` (commit `314fb42`, live in production): each `Location`
+      is resolved against the effective URL of the previous hop, the absolute final URL
+      still goes through the anti-SSRF check, and `tests/url_analyzer_redirect_test.php`
+      proves the relative hop works, the absolute/protocol-relative forms resolve and a
+      redirect to an internal target is still rejected (fail-closed).
 - [ ] **T5 — Run 100 rounds and fix what breaks.** Loop until the battery is green or a
       blocker is proven to be a product limit. Log every round, keep the failure report
       honest.
@@ -115,6 +130,37 @@ phone and that repaints its brand colour after load is not shippable to 100 real
       the fallback is always a product front (never the API domain), and the front
       explains approved / rejected / cancelled / pending / unknown in the wallet.
       Credits still only move on `APPROVED`, through the signed webhook.
+- [x] **T7 — Panel sin restos del producto anterior + asistente con voz propia.**
+      Owner-reported (live screenshots): the header still showed an **"Ocultar
+      adjuntos"** button, the **"Conversaciones"** link, a messy row of chat action
+      icons, and the assistant answered with a curt, canned 5-point list.
+      - The "Ocultar adjuntos" button was the leftover of the collapsible-inputs
+        feature: it looked for "the previous heading" with
+        `querySelectorAll('h1, h2, h3')`, grabbed the panel's `<h1>` in the header and
+        therefore rendered **in the top bar**. The whole feature is gone (wrapper,
+        button, `setInputsCollapsed`, `state.inputsCollapsed`); the CV and offer
+        blocks stay visible and behave as before.
+      - "Conversaciones" is gone from the desktop nav and from the mobile pill strip
+        (`#panel-conversaciones` stays: the informe deep link still opens it).
+      - The chat action icons are now one single strip per bubble (Escuchar, Editar y
+        descargar, Eliminar), same size, same style, each with its tooltip; the icons
+        went from 14 px unlabelled to 16 px grouped.
+      - New switch **"Usar mi informe como contexto"** in `#chat-section`, **active by
+        default**: the analyzer announces its report (`cv-ats:informe`) and every chat
+        message carries that report as context — no extra call, no extra charge. Off
+        means general employment answers.
+      - **First entry**: a registered user who has never opened the panel lands
+        straight on `app.html` (flag `aj:primer-acceso-panel`); after that the landing
+        stays reachable, and flows with return parameters (`?pago=`, `?token=`, anchors)
+        are never redirected.
+      - **Assistant voice** (in `api-independent`): the `atscv` persona's mandatory
+        5-point format (`**1. En simple:** … **2. Lo que te falta:** …`) was what made
+        every answer feel like a form. The persona now keeps every hard rule (only the
+        delivered data, only the delivered BCN context, the exact "no base legal"
+        sentence, cite norma + artículo, never promise the ATS result) and replaces the
+        fixed shape with a flexible one: adapt the form to the question, always bring
+        something concrete, vary the opening, one clarifying question at most, warm
+        without pressure.
 
 ## Acceptance criteria
 
@@ -124,14 +170,19 @@ phone and that repaints its brand colour after load is not shippable to 100 real
    on load; the stored day/night preference survives a reload.
 3. The landing reads as one system: brand typefaces active, consistent card elevation and
    borders, one accent label, and `/cv-ats/` sharing the landing header.
-4. `node --test` passes; the CDP battery passes against the live domain.
+4. The CDP battery passes against the live domain. The front repository has **no**
+   `*.test.mjs` unit suite (there is nothing for `node --test` to run), so the battery
+   and the API's PHP tests are the real checks.
 5. After a successful round the account no longer exists: `GET /auth/me` returns 401 and
    the user row is gone from the database.
 
 ## Checks
 
-- `cd /home/test/test/atscv-independent && node --test js/*.test.mjs`
-- CDP battery against `https://atscv.djlabs.cl/` (the harness itself).
+- `node --check tests/atscv-battery.mjs` (the harness parses).
+- CDP battery against `https://atscv.djlabs.cl/` (the harness itself): one round per
+  input mode, then the 100-round loop.
+- API side (`api-independent`): `php tests/url_analyzer_redirect_test.php`,
+  `php tests/payment_return_url_test.php`, `php tests/payment_return_endpoint_test.php`.
 - After the Pages build: `sha256` of the live `index.html` equals the committed one.
 
 ## Progress
@@ -142,18 +193,24 @@ phone and that repaints its brand colour after load is not shippable to 100 real
 | T1 | done | `f7cdbff` — burger `#menu-toggle` + panel `#mobile-menu`; 375/768 px: burger visible, panel opaco `rgb(244,247,246)`, sin scroll horizontal; 1024 px+: barra de escritorio; Escape cierra; sin errores de consola |
 | T2 | done | `5508494` — `data-skin="indigo"` en las tres superficies; con un stub que devuelve `teal`, el DOM sigue en `indigo` antes y después de `/ui/theme`; `aj:tema` sobrevive a la recarga |
 | T3 | done | `5db7354` — Newsreader + Public Sans autoalojadas (`fonts/`, `document.fonts` = loaded); tarjetas con `shadow-sm` + borde de token; banda de color + banda final; `blue-*` → `brand-*`; `/cv-ats/` con el header de la landing y sin el 404 de `js/tailwind.config.js`; `css/tailwind.css` sin cambios |
-| T4 | pending | |
-| T5 | pending | |
+| T4 | done | `a0e671d` — `tests/atscv-battery.mjs` (self-contained CDP client, Node 22 global `WebSocket`, no new deps) + `tests/README-battery.md`; smoke round green: 1/1 ok, account deleted and verified (`users=0`, 20 user tables empty, `account_deletion_log` keeps the deletion by design), CV PDF 31.788 B and carta PDF 23.776 B, both `%PDF`; the URL mode failed → traced to the API, not the harness (see T4b) |
+| T4b | done | `314fb42` (api-independent, live) — relative `Location` resolved against the effective URL before the SSRF recheck; `tests/url_analyzer_redirect_test.php` 13/13; verified live: `POST /v1/cv-ats/desde-url` on the published fixture now answers 200 with the CV and offer text, and a loopback target is still rejected (400) |
+| T5 | in progress | Three-mode validation running (one round per mode), then the 100-round loop |
+| T7 | done | Front: `cv-ats.js` (whole collapsible-inputs feature removed), `app.html` (nav without "Conversaciones", switch `#chat-contexto-switch`), `chat-widget.js` (single action strip per bubble, 16 px icons, `contextProvider`), `app-4.js` (switch wiring + informe context + first-entry flag), `index-4.js` (first entry → panel); local Chrome: zero "Ocultar adjuntos", nav `Home · Panel · Billetera · Uso`, switch `aria-checked=true` and toggles/persists, no console errors. API: `heart_personas` row `atscv/authenticated` rewritten (1 652 → 2 927 chars), verified in place; the previous prompt stays in `prompt_audits` |
 
 ## Route declaration
 
 - T1–T3: **delegated writer** (touches more than two non-trivial files: three HTML
   surfaces, the inline bundle, the token layer and the build config).
 - T4: **delegated writer** (new harness plus fixtures, needs the CDP reference pattern).
+- T4b: **delegated writer** in `api-independent` (service + regression test); the parent
+  verified the root cause, the live behaviour and the untouched anti-SSRF guard.
 - T5: **parent** (execution and reporting; failures are fixed by re-entering T1–T4).
 - Mapping/recon was delegated to one narrow read-only mapper; the parent verified the
   decisive claims itself (sha256 of the live document, Pages configuration, git history).
 
 ## Next step
 
-Write T1–T3, publish, then build and run the battery.
+Run the three-mode validation (one round per mode), then the 100-round loop against the
+live domain with the resumable JSONL log, and report the rounds that passed, the real
+LLM calls and the accounts deleted.

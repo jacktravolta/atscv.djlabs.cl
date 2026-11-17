@@ -218,6 +218,9 @@
         if (balance !== null) setBalance(balance);
         $('gate').classList.add('hidden');
         $('app').classList.remove('hidden');
+        // Primera entrada al panel: la landing usa esta bandera para enviar
+        // directo a quien ya tiene cuenta y nunca ha entrado al panel.
+        try { localStorage.setItem('aj:primer-acceso-panel', '1'); } catch (_) { /* no crítico */ }
         // reseller-system: la pestaña "Gestión vendedor" solo existe para
         // cuentas con role='vendedor' — el servidor decide, nunca el cliente.
         syncGestionVendedorNav(profile.role === 'vendedor');
@@ -692,7 +695,7 @@
 
     function ensureChatPanel() {
       if (!chatWidgetPromise) {
-        chatWidgetPromise = import('../chat-widget.js?v=14')
+        chatWidgetPromise = import('../chat-widget.js?v=15')
           .then((m) => m.mountChat(document.getElementById('chat-panel'), {
             title: 'CV ATS Match',
             placeholder: 'Pregúntame sobre el informe…',
@@ -700,6 +703,9 @@
             // Dev-only heart switch (honored in development): scopes the
             // RAG context of every message to the ley_datos heart.
             extraBody: { heart: 'atscv' },
+            // Contexto del informe: con el interruptor activo, cada mensaje
+            // lleva el informe del análisis pegado al frente.
+            contextProvider: mensajeConContexto,
             // Avatar de las burbujas del usuario (mismo contrato que el SPA
             // principal): el widget lo pinta en cada mensaje user.
             // state.user lleva el payload {user, balance}: el widget necesita
@@ -720,6 +726,75 @@
           });
       }
       return chatWidgetPromise;
+    }
+
+    // ---- Contexto del informe para el chat ----
+    // El módulo del analizador avisa (evento 'cv-ats:informe') cuando hay un
+    // informe listo. Con el interruptor "Usar mi informe como contexto"
+    // (ACTIVO por defecto) cada mensaje lleva el informe pegado al frente,
+    // así el asistente responde siempre sobre ese análisis. Apagado, el
+    // asistente responde en general. No es una llamada extra ni un cobro
+    // extra: el contexto viaja dentro del mismo mensaje.
+    const CONTEXTO_PREF_KEY = 'aj:chat-contexto-informe';
+    const CONTEXTO_INFORME_KEY = 'aj:ultimo-informe-contexto';
+    const CONTEXTO_MAX_CHARS = 6000;
+
+    function contextoActivo() {
+      try {
+        const guardado = localStorage.getItem(CONTEXTO_PREF_KEY);
+        return guardado === null ? true : guardado !== '0';
+      } catch (_) { return true; }
+    }
+
+    function informeGuardado() {
+      try { return String(localStorage.getItem(CONTEXTO_INFORME_KEY) || '').trim(); }
+      catch (_) { return ''; }
+    }
+
+    document.addEventListener('cv-ats:informe', (evento) => {
+      const detalle = (evento && evento.detail) || {};
+      const texto = String(detalle.texto || '').trim();
+      if (!texto) return;
+      try { localStorage.setItem(CONTEXTO_INFORME_KEY, texto); } catch (_) { /* no crítico */ }
+    });
+
+    function pintarSwitch(activo) {
+      const interruptor = document.getElementById('chat-contexto-switch');
+      if (!interruptor) return;
+      interruptor.setAttribute('aria-checked', String(activo));
+      const pista = interruptor.querySelector('[data-switch-pista]');
+      const boton = interruptor.querySelector('[data-switch-boton]');
+      if (pista) {
+        pista.classList.toggle('bg-brand-600', activo);
+        pista.classList.toggle('bg-slate-300', !activo);
+      }
+      if (boton) {
+        boton.classList.toggle('translate-x-4', activo);
+        boton.classList.toggle('translate-x-0.5', !activo);
+      }
+    }
+
+    (function wireInterruptorContexto() {
+      const interruptor = document.getElementById('chat-contexto-switch');
+      if (!interruptor) return;
+      pintarSwitch(contextoActivo());
+      interruptor.addEventListener('click', () => {
+        const nuevo = interruptor.getAttribute('aria-checked') !== 'true';
+        pintarSwitch(nuevo);
+        try { localStorage.setItem(CONTEXTO_PREF_KEY, nuevo ? '1' : '0'); } catch (_) { /* no crítico */ }
+      });
+    })();
+
+    function mensajeConContexto(question) {
+      if (!contextoActivo()) return question;
+      const informe = informeGuardado();
+      if (!informe) return question;
+      const recorte = informe.length > CONTEXTO_MAX_CHARS
+        ? informe.slice(0, CONTEXTO_MAX_CHARS) + '\n[…informe recortado…]'
+        : informe;
+      return 'Contexto de referencia (informe de mi análisis de CV contra la oferta):\n\n'
+        + recorte
+        + '\n\nMi pregunta: ' + question;
     }
 
     async function deliverToChat(conversationId, question, assistantText) {

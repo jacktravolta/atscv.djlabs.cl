@@ -590,6 +590,7 @@ export function mountChat(container, options = {}) {
   const attachButton = el('button', {
     type: 'button',
     class: 'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-200 hover:text-blue-600',
+    title: 'Adjuntar documento',
     'aria-label': 'Adjuntar documento',
   });
   attachButton.innerHTML =
@@ -1385,21 +1386,26 @@ export function mountChat(container, options = {}) {
     // primera burbuja del historial, sin umbral de frases. —
     audioBtn = el('button', {
       type: 'button',
-      class: 'tts-btn rounded p-1 text-slate-400 transition hover:bg-slate-200 hover:text-brand-700',
+      class: 'tts-btn inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-200 hover:text-brand-700',
       title: 'Escuchar mensaje',
       'aria-label': 'Escuchar mensaje'
     }, [svgIcon('audio')]);
 
-    if (showActions) {
-      actions = el('div', {
-        class: 'flex items-center gap-1',
-        'aria-label': 'Acciones del mensaje'
-      });
+    // Una sola tira de acciones por burbuja. Antes el botón de audio quedaba
+    // suelto al lado de la burbuja y el resto venía en otro grupo: los iconos
+    // se leían como un montón desordenado. Ahora van juntos, del mismo tamaño
+    // y con su etiqueta al pasar el cursor.
+    actions = el('div', {
+      class: 'flex items-center gap-0.5 rounded-lg bg-slate-50 px-1 py-0.5',
+      'aria-label': 'Acciones del mensaje'
+    });
+    actions.appendChild(audioBtn);
 
+    if (showActions) {
       // — Editar/Descargar: abre el editor con el flujo TXT/DOCX/PDF —
       editBtn = el('button', {
         type: 'button',
-        class: 'rounded p-1 text-slate-400 transition hover:bg-slate-200 hover:text-brand-700',
+        class: 'inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-200 hover:text-brand-700',
         title: 'Editar y descargar documento',
         'aria-label': 'Editar y descargar documento'
       }, [svgIcon('download')]);
@@ -1407,17 +1413,15 @@ export function mountChat(container, options = {}) {
       // — Eliminar —
       deleteBtn = el('button', {
         type: 'button',
-        class: 'rounded p-1 text-slate-400 transition hover:bg-slate-200 hover:text-rose-600',
+        class: 'inline-flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-200 hover:text-rose-600',
         title: 'Eliminar mensaje',
         'aria-label': 'Eliminar mensaje'
       }, [svgIcon('trash')]);
 
       actions.append(editBtn, deleteBtn);
-      content.append(bubble, audioBtn, actions);
-    } else {
-      // Sin umbral: solo el botón de audio junto a la burbuja.
-      content.append(bubble, audioBtn);
     }
+
+    content.append(bubble, actions);
 
     if (isOwn) {
       row.append(content);
@@ -2106,7 +2110,7 @@ export function mountChat(container, options = {}) {
     svg.setAttribute('stroke', 'currentColor');
     svg.setAttribute('stroke-width', '1.8');
     svg.setAttribute('aria-hidden', 'true');
-    svg.classList.add('h-3.5', 'w-3.5');
+    svg.classList.add('h-4', 'w-4');
     // Los SVG tienen className como SVGAnimatedString (no string): cualquier
     // handler global (ej. extensiones del navegador) que haga
     // e.target.className.indexOf(...) crashea si el click cae en el SVG.
@@ -2217,6 +2221,20 @@ export function mountChat(container, options = {}) {
     const typingRow = addTypingRow();
 
     try {
+      // Contexto del host: el panel puede mandar el mensaje con el informe
+      // pegado al frente (switch "Usar mi informe como contexto"). No es una
+      // llamada extra ni un cobro extra: viaja dentro del mismo mensaje, y
+      // la burbuja del usuario sigue mostrando lo que escribió.
+      let payloadQuestion = question;
+      if (typeof options.contextProvider === 'function') {
+        try {
+          const conContexto = await options.contextProvider(question);
+          if (typeof conContexto === 'string' && conContexto.trim() !== '') {
+            payloadQuestion = conContexto;
+          }
+        } catch (_) { /* sin contexto: la pregunta va tal cual */ }
+      }
+
       // Cross-server topology: the chat brain lives on the API origin, so
       // the absolute URL goes through apiUrl() (api-config.js). Kept the
       // optional options.apiBase as an explicit override for embeds.
@@ -2230,7 +2248,7 @@ export function mountChat(container, options = {}) {
         // when the user is logged in.
         credentials: 'include',
         body: JSON.stringify({
-          question,
+          question: payloadQuestion,
           ...(state.conversationId ? { conversation_id: state.conversationId } : {}),
           // Host-injected extra fields (e.g. dev-only per-request heart).
           ...(options.extraBody || {}),

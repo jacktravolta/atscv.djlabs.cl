@@ -461,10 +461,40 @@
         if (!user) return;
 
         revealSessionUi(user);
+
+        // Primera entrada de un usuario registrado: si este navegador todavía
+        // no ha entrado al panel, la persona va directo a él en vez de quedar
+        // en la landing de marketing. La bandera la marca el panel al
+        // entrar, así que después la landing sigue accesible.
+        if (primerAccesoAlPanelPendiente() && !landingConRetornoPendiente()) {
+          window.location.assign('app.html');
+          return;
+        }
       } catch (_) {
         // Network/backend hiccup: keep the visitor landing exactly as it is.
       }
     })();
+
+    // Primera entrada de un usuario registrado → directo al panel.
+    // La bandera la marca el panel (js/inline/app-4.js) cuando la sesión es
+    // válida: con ella puesta, la landing sigue accesible para quien ya
+    // entró. Los flujos con parámetros de retorno (pago de Flow, enlace
+    // mágico, anclas de sección) NUNCA se redirigen: deben completarse.
+    const PRIMER_PANEL_KEY = 'aj:primer-acceso-panel';
+
+    function primerAccesoAlPanelPendiente() {
+      try { return localStorage.getItem(PRIMER_PANEL_KEY) !== '1'; }
+      catch (_) { return false; }
+    }
+
+    function landingConRetornoPendiente() {
+      try {
+        const url = new URL(window.location.href);
+        if (['pago', 'orden', 'monto', 'token'].some((clave) => url.searchParams.has(clave))) return true;
+        const ancla = (url.hash || '').replace('#', '').toLowerCase();
+        return ['billetera', 'recargas', 'panel', 'wallet'].includes(ancla);
+      } catch (_) { return false; }
+    }
 
     // ============================== MOBILE NAV (BURGER) ==============================
     // Menú desplegable del header para teléfono y tablet (< 1024px). El
