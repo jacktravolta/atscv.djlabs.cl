@@ -139,14 +139,19 @@ phone and that repaints its brand colour after load is not shippable to 100 real
    on load; the stored day/night preference survives a reload.
 3. The landing reads as one system: brand typefaces active, consistent card elevation and
    borders, one accent label, and `/cv-ats/` sharing the landing header.
-4. `node --test` passes; the CDP battery passes against the live domain.
+4. The CDP battery passes against the live domain. The front repository has **no**
+   `*.test.mjs` unit suite (there is nothing for `node --test` to run), so the battery
+   and the API's PHP tests are the real checks.
 5. After a successful round the account no longer exists: `GET /auth/me` returns 401 and
    the user row is gone from the database.
 
 ## Checks
 
-- `cd /home/test/test/atscv-independent && node --test js/*.test.mjs`
-- CDP battery against `https://atscv.djlabs.cl/` (the harness itself).
+- `node --check tests/atscv-battery.mjs` (the harness parses).
+- CDP battery against `https://atscv.djlabs.cl/` (the harness itself): one round per
+  input mode, then the 100-round loop.
+- API side (`api-independent`): `php tests/url_analyzer_redirect_test.php`,
+  `php tests/payment_return_url_test.php`, `php tests/payment_return_endpoint_test.php`.
 - After the Pages build: `sha256` of the live `index.html` equals the committed one.
 
 ## Progress
