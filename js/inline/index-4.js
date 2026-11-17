@@ -1059,7 +1059,11 @@
             method: 'POST',
             credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, message, website: '' }),
+            // El heart elige la PLANTILLA del aviso (colores y emblema): sin
+            // esto el correo llegaba con la marca de la plataforma en vez de
+            // CV ATS Match. No autoriza nada: el destinatario y el Reply-To
+            // los decide el servidor.
+            body: JSON.stringify({ name, email, message, website: '', heart: 'atscv' }),
           });
           const data = await response.json().catch(() => ({}));
 
