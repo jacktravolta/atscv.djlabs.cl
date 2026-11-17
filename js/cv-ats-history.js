@@ -138,15 +138,6 @@ function actualizarConteo() {
   conteo.textContent = total + (total === 1 ? ' oferta' : ' ofertas');
 }
 
-function documentosMarkup(documentos) {
-  const items = (Array.isArray(documentos) ? documentos : []).filter((documento) => documento && documento.url)
-    .map((documento) => ({ url: documento.url, nombre: documento.filename || 'Documento' }));
-  if (!items.length) return '<p class="mt-2 text-sm text-slate-500">Todavía no hay documentos descargables en esta oferta.</p>';
-  const lista = items.map((item) => `<li>${enlace(apiUrl(item.url), item.nombre, 'text-sm font-medium text-blue-700 underline')}</li>`).join('');
-  return `<div class="mt-3"><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Documentos listos</p>
-    <ul class="mt-1 space-y-1">${lista}</ul></div>`;
-}
-
 function opcionesRadios(nombre, items, elegido, conCreditos) {
   return items.map((item) => {
     const id = `${nombre}-${item.id}`;
@@ -191,7 +182,6 @@ function tarjetaMarkup(entrada) {
   const score = Math.max(0, Math.min(100, Math.round(Number(entrada.score) || 0)));
   const minimo = estado.minimizados.has(entrada.id_hys);
   const generado = estado.generados.get(entrada.id_hys) || null;
-  const documentos = Array.isArray(entrada.documentos) ? entrada.documentos : [];
   return `<article class="rounded-xl border border-slate-200 bg-white p-4" data-cvats-hist-id="${escapeHtml(entrada.id_hys || '')}">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="min-w-0 flex-1"><p class="truncate font-semibold text-slate-900" title="${titulo}">${titulo}</p>
@@ -202,7 +192,7 @@ function tarjetaMarkup(entrada) {
       ${boton('minimizar', minimo ? 'Expandir' : 'Minimizar', BOTON, minimo ? 'false' : 'true')}${boton('maximizar', 'Maximizar', BOTON)}</div>
     <div class="cvats-hist-tarjeta-wrap mt-3" style="grid-template-rows: ${minimo ? '0fr' : '1fr'};">
       <div class="cvats-hist-tarjeta-inner"><p class="text-sm text-slate-600">CV: ${numero(entrada.cv_chars)} caracteres · Oferta: ${numero(entrada.oferta_chars)} caracteres</p>
-        ${documentosMarkup(documentos)}${generadosMarkup(generado)}
+        ${generadosMarkup(generado)}
         <div class="cvats-hist-picker mt-3"${generado ? '' : ' hidden'}>${pickerMarkup(entrada)}</div>
         <p class="cvats-hist-mensaje mt-2 text-sm text-rose-700" role="status" hidden></p></div>
     </div>
