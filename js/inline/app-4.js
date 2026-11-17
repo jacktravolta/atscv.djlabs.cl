@@ -606,7 +606,7 @@
         };
         addCapturedSite({ source_id: d.source_id, markdown: d.markdown || '', snippet_heart: d.snippet ? d.snippet.heart : '', snippet_owner: d.snippet ? d.snippet.owner_id : '' });
         const list = $('capture-list');
-        if (list.firstElementChild) {
+        if (list && list.firstElementChild) {
           const first = list.firstElementChild;
           first.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -1157,9 +1157,10 @@
         if (e.key === 'Escape' && window.ldCloseHeaderMenu) window.ldCloseHeaderMenu();
       });
 
-      // Elegir una pestaña en el menú compacto también lo cierra (la
-      // navegación la lleva el wiring compartido de .nav-item[data-panel]).
-      document.querySelectorAll('#header-menu-panel .nav-item[data-panel]').forEach(function (button) {
+      // La fila móvil de paneles vive fuera del burger; si el menú está
+      // abierto, elegir un panel también lo cierra. La navegación la lleva
+      // el wiring compartido de .nav-item[data-panel].
+      document.querySelectorAll('#header-nav-mobile .nav-item[data-panel]').forEach(function (button) {
         button.addEventListener('click', closeHeaderMenu);
       });
     }
@@ -3162,8 +3163,8 @@
     // (syncGestionVendedorNav se alimenta de /auth/me); los datos se leen
     // lazy al abrir el panel, igual que Billetera o Conversaciones.
     function syncGestionVendedorNav(visible) {
-      // La pestaña existe en la nav de escritorio Y en el menú compacto
-      // (burger): una misma decisión de rol para ambas copias, sin lógica
+      // La pestaña existe en la nav de escritorio Y en la fila móvil de
+      // paneles: una misma decisión de rol para ambas copias, sin lógica
       // nueva — la clase hidden simplemente se aplica a [data-panel].
       document.querySelectorAll('.nav-item[data-panel="gestion-vendedor"]').forEach(function (nav) {
         nav.classList.toggle('hidden', !visible);
@@ -3896,6 +3897,9 @@
 
     async function renderSourceList() {
       const list = $('capture-list');
+      // La lista de adjuntos pertenece al producto anterior. Si ya no está
+      // en el DOM, no hay nada que pintar y tampoco corresponde pedir fuentes.
+      if (!list) return;
       const seq = ++renderSourceListSeq;
       try {
         const r = await fetch(window.API('/rag/sources?heart=') + encodeURIComponent('atscv'), { headers: authHeaders(), credentials: 'include' });
@@ -3904,7 +3908,8 @@
         if (seq !== renderSourceListSeq) return; // hay una respuesta más nueva
         const items = d && d.data && Array.isArray(d.data.sources) ? d.data.sources : [];
         renderGlobalEmbedBox((d && d.data && d.data.heart) || 'atscv');
-        $('captures-empty').classList.toggle('hidden', items.length > 0);
+        const empty = $('captures-empty');
+        if (empty) empty.classList.toggle('hidden', items.length > 0);
         list.replaceChildren();
         for (const it of items) {
           const meta = captureMeta[it.source_id] || {};
@@ -3919,18 +3924,20 @@
         console.error('[panel] list-sources falló:', e);
         renderGlobalEmbedBox('atscv');
         const box = $('captures-empty');
-        box.classList.remove('hidden');
-        // OJO: replaceChildren() SIN argumentos vaciaría el mensaje que
-        // acabamos de escribir (por eso el fallo se veía como «lista vacía»).
-        box.replaceChildren();
-        const titulo = document.createElement('p');
-        titulo.className = 'text-rose-600 font-medium';
-        titulo.textContent = 'No pudimos cargar tu lista de fuentes.';
-        const detalle = document.createElement('p');
-        detalle.className = 'mt-1 text-xs text-slate-500';
-        detalle.textContent = 'Detalle: ' + String(e && e.message || e)
-          + '. Recarga la página (Ctrl+Shift+R); si persiste, es un problema de sesión o de red.';
-        box.replaceChildren(titulo, detalle);
+        if (box) {
+          box.classList.remove('hidden');
+          // OJO: replaceChildren() SIN argumentos vaciaría el mensaje que
+          // acabamos de escribir (por eso el fallo se veía como «lista vacía»).
+          box.replaceChildren();
+          const titulo = document.createElement('p');
+          titulo.className = 'text-rose-600 font-medium';
+          titulo.textContent = 'No pudimos cargar tu lista de fuentes.';
+          const detalle = document.createElement('p');
+          detalle.className = 'mt-1 text-xs text-slate-500';
+          detalle.textContent = 'Detalle: ' + String(e && e.message || e)
+            + '. Recarga la página (Ctrl+Shift+R); si persiste, es un problema de sesión o de red.';
+          box.replaceChildren(titulo, detalle);
+        }
         list.replaceChildren();
       }
     }
