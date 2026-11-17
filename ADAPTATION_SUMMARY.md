@@ -18,13 +18,13 @@ billetera, RAG de leyes y bandeja de archivos.
 | Créditos | Sólo en la billetera | **Badge siempre visible** en el header, actualizado en vivo |
 | "Tus análisis" | Visible | **Oculta** a propósito |
 
-## Módulo compartido
+## Módulo único del analizador
 
-`js/cv-ats.js` es la fuente única del analizador: el panel (`app.html`) y la
-ruta `/cv-ats/` cargan el mismo archivo, así que el modal de vista previa,
-las gráficas, la animación de carga, el bloque de URL y el colapso se
-comportan igual en ambos. El módulo **crea** el modal, el bloque de URL y
-los estilos por JS: no hay markup duplicado entre las dos rutas.
+`js/cv-ats.js` es la fuente única del analizador: el panel (`app.html`) carga
+ese mismo archivo, así que el modal de vista previa, las gráficas, la animación
+de carga, el bloque de URL y el colapso se comportan de forma consistente
+dentro del panel. El módulo **crea** el modal, el bloque de URL y los estilos
+por JS: no hay markup duplicado entre el HTML y el módulo.
 
 ### Lo que el módulo hace por ti
 

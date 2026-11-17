@@ -1,5 +1,9 @@
 # Feature: atscv-cv-ats-match — Producto CV ATS MATCH (corazón `atscv`)
 
+> **Nota histórica (2026-11-17):** la ruta suelta `/cv-ats/` se eliminó porque
+> el analizador ya está integrado en el panel (`app.html`) y cobra créditos por
+> el validador. Este documento se conserva como registro de lo que se hizo.
+
 > Espejo en Engram: topic `odd/atscv-cv-ats-match/tasks`.
 > Rama de trabajo: `feat/leylaboral-escritos-18-tipos` (la que ya estaba, donde viven los commits previos del ATS).
 > **No se creó** una rama propia: cambiar de rama reescribe el working tree y el agente que trabaja en

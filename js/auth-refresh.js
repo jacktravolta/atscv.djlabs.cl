@@ -5,9 +5,8 @@
 // ONCE through POST /auth/refresh and replay the original request, so the
 // person never hits a wall mid-work.
 //
-// This module used to live inline inside app.html only, which meant the
-// standalone surfaces (the landing and /cv-ats) dead-ended as soon as the
-// access token expired. It is now a module both surfaces load.
+// This module used to live inline inside app.html only. It now keeps the
+// refresh logic reusable across the public and panel surfaces.
 //
 // Cookies are the credential: js/http.js does NOT send an Authorization
 // header, it relies on the httpOnly cookie. The rotation therefore works
