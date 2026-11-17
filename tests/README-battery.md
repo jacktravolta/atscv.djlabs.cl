@@ -1,0 +1,177 @@
+# Batería E2E de CV ATS Match
+
+`tests/atscv-battery.mjs` ejecuta recorridos reales de CV ATS Match contra
+`https://atscv.djlabs.cl/` con Chrome y CDP. No usa Playwright, Puppeteer ni
+ninguna otra dependencia nueva: el cliente CDP y el acceso a MySQL están
+incluidos en el propio script.
+
+## Qué verifica cada ronda
+
+Cada ronda crea una cuenta nueva y termina eliminándola desde la interfaz:
+
+1. envío del formulario de contacto;
+2. registro con bono inicial;
+3. cierre de sesión desde el panel;
+4. inicio de sesión;
+5. carga del panel y lectura del saldo;
+6. alta del CV y de la oferta en uno de los tres modos;
+7. análisis ATS contra la oferta;
+8. selección de plantilla;
+9. generación del CV adaptado y de la carta;
+10. descarga y validación de ambos PDF;
+11. carta adicional solicitada al chat del asistente;
+12. baja desde Perfil con la confirmación `BORRAR`;
+13. comprobación de `GET /auth/me` con HTTP 401;
+14. intento de login posterior, que debe seguir rechazado;
+15. comprobación en MySQL de que no quedan filas de usuario ni de sus datos;
+16. cierre de sesión final, si todavía queda una sesión abierta.
+
+Los PDF se validan por HTTP 200, cabecera `%PDF` y tamaño mayor de 1 KB. La
+baja se verifica tanto en la API como en la base de datos. La fila de
+`account_deletion_log` y el registro antifraude de
+`welcome_bonus_grantees` se conservan a propósito: el primero deja evidencia
+de la baja y el segundo impide entregar otra vez el bono de bienvenida.
+
+## Requisitos
+
+- Node.js 22 o superior, con `WebSocket` global;
+- Google Chrome instalado y disponible como `google-chrome`, o `CHROME_BIN`
+  apuntando al binario;
+- `mysql` disponible en `PATH`;
+- el checkout de `api-independent`, porque el script lee de ahí la
+  configuración de la base de datos y comprueba las filas tras la baja;
+- credenciales de MySQL configuradas en `api-independent/config/config.php`.
+
+No hay que instalar dependencias del proyecto para ejecutar la batería.
+
+## Ejecución recomendada
+
+Empieza siempre con una sola ronda y un identificador nuevo:
+
+```bash
+cd /home/test/test/atscv-independent
+ROUNDS=1 RUN_ID=smoke-local CONCURRENCY=1 node tests/atscv-battery.mjs
+```
+
+Para la corrida completa:
+
+```bash
+ROUNDS=100 RUN_ID=battery-2026-11-17 CONCURRENCY=1 node tests/atscv-battery.mjs
+```
+
+`RUN_ID` forma parte del correo temporal de cada cuenta. Usa uno nuevo para
+cada intención de prueba: el registro antifraude del bono puede impedir
+reutilizar un correo que ya consumió el bono de bienvenida.
+
+La corrida completa genera contactos, correos de bienvenida y llamadas reales
+al modelo. Revisa los costos y el volumen de correo antes de iniciarla.
+
+## Modos de carga
+
+Las rondas alternan automáticamente entre:
+
+- `archivo`: PDF local del CV y PDF local de la oferta;
+- `url`: páginas HTML públicas de los fixtures;
+- `texto`: CV y oferta escritos en los campos de texto.
+
+Para una corrida de 100 rondas quedan 34 de archivo, 33 de URL y 33 de texto.
+El script no modifica fixtures, front, CSS ni JavaScript de la aplicación.
+
+## Variables de entorno
+
+| Variable | Valor por defecto | Uso |
+| --- | --- | --- |
+| `ROUNDS` | `1` | Número de rondas, entre 1 y 1000. |
+| `RUN_ID` | `run-<timestamp>` | Identificador de corrida; se normaliza para usarlo en rutas y correos. |
+| `CONCURRENCY` | `1` | Rondas simultáneas, entre 1 y 8. Se recomienda 1 para una primera ejecución. |
+| `RESUME` | `1` | Si vale `1`, omite las rondas ya registradas en el JSONL. Con `0`, rechaza un log que ya contenga rondas terminadas. |
+| `BASE_URL` | `https://atscv.djlabs.cl/` | Front real. El script solo acepta ese dominio HTTPS. |
+| `API_REPO` | `/home/test/test/api-independent` | Checkout de la API usado para leer la configuración y consultar MySQL. |
+| `CHROME_BIN` | `google-chrome` | Binario de Chrome. |
+| `HEADFUL` | sin valor | Usa `HEADFUL=1` para abrir Chrome con interfaz visible. |
+
+La API no está codificada en el arnés: se lee `window.__API_BASE__` desde el
+front real y se registra en el JSONL al iniciar cada ronda.
+
+## Evidencia y reanudación
+
+Toda la evidencia se escribe bajo `tests/artifacts/`, que está ignorado por
+Git:
+
+```text
+tests/artifacts/
+├── battery-<RUN_ID>.jsonl
+├── battery-<RUN_ID>.summary.json
+└── battery-<RUN_ID>/
+    └── round-<n>/
+        ├── responses/
+        ├── downloads/
+        └── fallos/
+```
+
+- El JSONL solo agrega líneas. Cada ronda terminada registra su estado,
+  fallos, operaciones observadas y verificación de baja.
+- `battery-<RUN_ID>.summary.json` contiene los contadores agregados y la lista
+  de rondas fallidas.
+- `responses/` conserva las respuestas HTTP y el cuerpo recibido.
+- `downloads/` conserva los dos PDF y sus metadatos de validación.
+- `fallos/` conserva HTML, captura y JSON del paso que falló.
+
+Para reanudar la misma corrida:
+
+```bash
+ROUNDS=100 RUN_ID=battery-2026-11-17 CONCURRENCY=1 RESUME=1 \
+  node tests/atscv-battery.mjs
+```
+
+El resumen reconstruye los contadores de las rondas omitidas a partir del
+JSONL. No borra ni reescribe rondas anteriores.
+
+## Límites que limpia el arnés
+
+Antes de cada ronda, el script borra solamente estas claves globales de
+`rate_limits`:
+
+- `auth:login:%`
+- `contact:ip:%`
+- `auth:refresh:%`
+- `voucher_verify:ip:%`
+
+No toca los límites por usuario de ATSCV, incluidos `atscv:user:%`,
+`atscv:gen:user:%` y `atscv:url:user:%`. El objetivo es permitir que la
+cuenta nueva atraviese los límites globales de acceso, sin alterar los
+límites de consumo del producto.
+
+## Bloqueo conocido del modo URL
+
+El 17 de noviembre de 2026 se comprobó un defecto del producto en producción,
+no del arnés:
+
+- el fixture `https://atscv.djlabs.cl/tests/fixtures/cv-battery.html` responde
+  HTTP 200;
+- el front envía `POST /v1/cv-ats/desde-url` con método `POST` y cuerpo
+  `{"url":"https://atscv.djlabs.cl/tests/fixtures/cv-battery.html"}`;
+- la API responde HTTP 400 con código `URL_INVALID` y el mensaje `URL inválida.
+  Debe incluir el esquema y el dominio.`
+
+El script conserva la respuesta real en `responses/desde-url-cv.json`. El
+modo URL no debe marcarse verde hasta que la API acepte esa URL válida. Los
+modos archivo y texto no dependen de este endpoint.
+
+## Comprobaciones antes de entregar
+
+```bash
+node --check tests/atscv-battery.mjs
+git diff --check
+git status --short
+```
+
+Una ronda terminada correctamente debe mostrar en el JSONL:
+
+- `step_completed` para el análisis, la generación, las descargas, el chat y
+  la baja;
+- `GET /auth/me` con estado 401 después de eliminar la cuenta;
+- login posterior con estado 401;
+- `users=0`, cero filas en las tablas de datos verificadas y al menos una fila
+  en `account_deletion_log` y en `welcome_bonus_grantees`;
+- `status=ok` y `deletionVerified=true` en `round_completed`.
