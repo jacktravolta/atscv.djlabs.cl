@@ -10,4 +10,11 @@ tailwind.build.config.js
 .htaccess
 
 # Los fixtures HTML sí se publican: la batería los descarga desde el dominio.
-tests/fixtures/*.pdf
+tests/fixtures/*.html
+
+# El arnés de QA nunca se publica: si la rama de la batería llega a main,
+# ni el script ni su documentación deben quedar accesibles desde el sitio.
+tests/*.mjs
+tests/*.md
+tests/artifacts/
+tests/**/*.pdf
