@@ -19,3 +19,6 @@ tests/artifacts/
 *.png
 *.jpg
 *.jpeg
+
+# Local skill registry cache
+.atl/
