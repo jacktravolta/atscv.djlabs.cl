@@ -9,9 +9,12 @@
 // Variables principales:
 //   ROUNDS=1 CONCURRENCY=1 RUN_ID=smoke-1 BASE_URL=https://atscv.djlabs.cl/
 //   RESUME=1 API_REPO=/ruta/al/api HEADFUL=1
+//   FIXTURE_PUBLIC_BASE=https://api.djlabs.cl/atscv/_battery
+//   BATTERY_DRY_DATA=1 (genera datos de tres rondas y PDF de muestra, sin red)
 // =============================================================================
 
 import { spawn, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   appendFileSync,
   existsSync,
@@ -21,6 +24,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import net from 'node:net';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -60,6 +64,11 @@ const API_REPO = path.resolve(process.env.API_REPO || '/home/test/test/api-indep
 const CHROME_BIN = process.env.CHROME_BIN || 'google-chrome';
 const HEADFUL = process.env.HEADFUL === '1';
 const BASE_URL_RAW = process.env.BASE_URL || DEFAULT_BASE_URL;
+// Verificación local del generador de datos: no abre Chrome, no toca la API.
+const DRY_DATA = process.env.BATTERY_DRY_DATA === '1';
+// Base pública donde se publican los HTML efímeros del modo URL. Si no se
+// define, se usa el docroot público que sirve la API (<apiBase>/atscv/_battery).
+const FIXTURE_PUBLIC_BASE = (process.env.FIXTURE_PUBLIC_BASE || '').replace(/\/+$/, '');
 
 let BASE_URL;
 try {
@@ -75,8 +84,15 @@ if (new URL(BASE_URL).protocol !== 'https:' || new URL(BASE_URL).hostname !== 'a
 const JSONL_PATH = path.join(ARTIFACTS, `battery-${RUN_ID}.jsonl`);
 const SUMMARY_PATH = path.join(ARTIFACTS, `battery-${RUN_ID}.summary.json`);
 const RUN_DIR = path.join(ARTIFACTS, `battery-${RUN_ID}`);
-mkdirSync(ARTIFACTS, { recursive: true });
-mkdirSync(RUN_DIR, { recursive: true });
+// Los HTML del modo URL se sirven desde el docroot público de la API. La
+// carpeta _battery y la subcarpeta de esta corrida se crean al publicar y la
+// subcarpeta se elimina al terminar: nunca se toca la carpeta padre.
+const FIXTURE_PUBLIC_DIR = path.join(API_REPO, 'public', 'atscv', '_battery');
+const FIXTURE_RUN_DIR = path.join(FIXTURE_PUBLIC_DIR, RUN_ID);
+if (!DRY_DATA) {
+  mkdirSync(ARTIFACTS, { recursive: true });
+  mkdirSync(RUN_DIR, { recursive: true });
+}
 
 const resumenGlobal = {
   runId: RUN_ID,
@@ -745,24 +761,407 @@ function verificarBorrado(db, email, userId) {
   };
 }
 
-const CV_TEXTO = `CURRÍCULUM VITAE — PERSONA FICTICIA DE LA BATERÍA ATSCV
-Nombre de prueba: Andrea Herrera
-Título: Analista de datos y automatización de procesos
-Resumen profesional: Ingeniera ficticia con seis años de experiencia construyendo repositorios de datos, tableros operativos y tareas automatizadas. Usa SQL, Python, dbt y Airflow para mejorar la calidad del dato y explicar resultados a equipos comerciales y de operaciones.
-Experiencia:
-- Analista de datos senior — Comercio digital ficticio (2022 a actualidad). Automaticé 35 reportes mensuales con SQL y Python, reduje el tiempo de cierre mensual en 45 % y publiqué un tablero de inventario en Power BI.
-- Analista de datos — Distribuidora ficticia (2020 a 2022). Uní operaciones y finanzas con dbt, validé calidad de datos y automaticé la conciliación de despachos con Python.
-- Analista junior — Consultora ficticia (2019 a 2020). Limpié catálogos con OpenRefine, construí reportes de ventas y documenté consultas SQL.
-Educación: Ingeniería en Datos, universidad ficticia (2019). Diplomado en Analítica Avanzada y Machine Learning (2023).
-Habilidades: SQL, PostgreSQL, MySQL, Python, pandas, dbt, Airflow, Power BI, Docker, Git, Excel, control de indicadores, calidad de datos, documentación, trabajo en equipo.
-Idiomas: español nativo e inglés técnico intermedio.`;
+// =============================================================================
+// Datos por ronda
+//
+// Cada ronda usa un CV y una oferta nuevos. La semilla combina RUN_ID y el
+// número de ronda (xmur3 + mulberry32), así que reanudar una corrida reproduce
+// exactamente los mismos datos. Los seis perfiles evitan que el análisis ATS
+// sea siempre el mismo texto: cambian cargo, herramientas, logros numéricos y
+// brechas deliberadas entre el CV y la oferta.
+// =============================================================================
 
-const OFERTA_TEXTO = `OFERTA FICTICIA DE EMPLEO — ANALISTA DE DATOS (SSC)
-Empresa de prueba SpA, modalidad híbrida en Santiago.
-Responsabilidades: construir tableros de indicadores; desarrollar consultas SQL; automatizar reportes con Python, dbt y Airflow; validar calidad de dato; presentar hallazgos a equipos no técnicos.
-Requisitos: 3 años en análisis de datos; SQL avanzado con PostgreSQL o MySQL; Python para análisis y automatización; visualización con Power BI o Looker Studio; Git y Docker; inglés intermedio.
-Palabras clave: SQL, Python, Power BI, dbt, Airflow, PostgreSQL, MySQL, pandas, Docker, Git, calidad de datos, dashboard, indicadores, automatización, repositorio de datos, modelado dimensional, reporting.
-Condiciones: contrato indefinido, jornada completa, capacitación y seguro de salud. Oferta y empresa completamente ficticias.`;
+const NOMBRES = [
+  'Andrea', 'Camila', 'Valentina', 'Javiera', 'Fernanda', 'Martina', 'Catalina', 'Ignacia',
+  'Matías', 'Sebastián', 'Diego', 'Cristóbal', 'Pablo', 'Nicolás', 'Rodrigo', 'Felipe',
+];
+const APELLIDOS = [
+  'Herrera', 'Molina', 'Rojas', 'Soto', 'Contreras', 'Sepúlveda', 'Fuentes', 'Araya',
+  'Navarro', 'Cárdenas', 'Pizarro', 'Valdés', 'Espinoza', 'Tapia', 'Bravo', 'Salazar',
+];
+const CIUDADES = [
+  'Santiago', 'Valparaíso', 'Concepción', 'La Serena', 'Temuco', 'Antofagasta', 'Rancagua', 'Puerto Montt',
+];
+const EMPRESAS = [
+  'Comercio Digital SpA', 'Distribuidora del Sur Ltda', 'Servicios Andinos SpA',
+  'Logística Central Ltda', 'Retail Pacífico SpA', 'Consultora Norte SpA',
+  'Tecnología del Maipo SpA', 'Operaciones Cordillera SpA', 'Finanzas del Valle SpA',
+  'Marketplace Bicentenario SpA',
+];
+const BENEFICIOS = [
+  'seguro de salud complementario', 'capacitación pagada', 'bono anual por desempeño',
+  'días administrativos adicionales', 'presupuesto de formación', 'horario flexible',
+];
+const MODALIDADES = ['híbrida en {ciudad}', 'presencial en {ciudad}', 'remota con una reunión mensual en {ciudad}'];
+const TIPOS_CONTRATO = ['contrato indefinido', 'contrato a plazo fijo renovable', 'contrato por obra o faena'];
+
+const PERFILES = [
+  {
+    id: 'analista-datos',
+    cargo: 'Analista de datos y automatización de procesos',
+    cargoJunior: 'Analista de datos junior',
+    formacion: 'Ingeniería en Datos',
+    diplomado: 'Analítica Avanzada y Machine Learning',
+    resumen: 'Analista de datos con {anios} años de experiencia construyendo repositorios, tableros operativos y tareas automatizadas. Uso {herramientas} para mejorar la calidad del dato y explicar resultados a equipos comerciales y de operaciones.',
+    logros: [
+      'Automaticé {p} reportes mensuales con SQL y Python y reduje el tiempo de cierre en {q} %',
+      'Publiqué un tablero de inventario en Power BI que usan {p} personas del equipo comercial y redujo {q} % las consultas manuales',
+      'Uní operaciones y finanzas con dbt, validé {p} tablas críticas y bajé los errores de conciliación en {q} %',
+      'Documenté {p} consultas SQL reutilizables y ahorré {q} horas mensuales de trabajo manual',
+    ],
+    junior: 'Limpié catálogos con OpenRefine, construí reportes de ventas y documenté consultas SQL.',
+    habilidades: ['SQL', 'PostgreSQL', 'MySQL', 'Python', 'pandas', 'dbt', 'Airflow', 'Power BI', 'Docker', 'Git', 'calidad de datos', 'modelado dimensional'],
+    responsabilidades: ['construir tableros de indicadores', 'desarrollar consultas SQL', 'automatizar reportes con Python, dbt y Airflow', 'validar calidad de dato', 'presentar hallazgos a equipos no técnicos'],
+    requisitos: ['SQL avanzado con PostgreSQL o MySQL', 'Python para análisis y automatización', 'visualización con Power BI o Looker Studio', 'Git y Docker', 'trabajo con equipos comerciales'],
+    brechas: ['experiencia con Snowflake', 'inglés avanzado'],
+  },
+  {
+    id: 'qa-engineer',
+    cargo: 'Ingeniero de calidad de software (QA)',
+    cargoJunior: 'Analista QA junior',
+    formacion: 'Ingeniería en Informática',
+    diplomado: 'Automatización de Pruebas de Software',
+    resumen: 'Ingeniero de calidad con {anios} años de experiencia diseñando planes de prueba, automatizando regresiones con {herramientas} y cuidando la trazabilidad de cada release.',
+    logros: [
+      'Automaticé {p} casos de regresión con Playwright y reduje el ciclo de prueba en {q} %',
+      'Diseñé un plan de pruebas para {p} módulos críticos y bajé los defectos reportados en producción en {q} %',
+      'Integré pruebas de API en el pipeline de CI/CD, cubriendo {p} endpoints y detectando {q} fallos antes del despliegue',
+      'Documenté {p} escenarios de aceptación y ahorré {q} horas mensuales de retrabajo',
+    ],
+    junior: 'Ejecuté pruebas manuales, registré incidencias en Jira y mantuve actualizada la matriz de cobertura.',
+    habilidades: ['Playwright', 'Cypress', 'Selenium', 'Postman', 'Jest', 'pruebas de API', 'pruebas de regresión', 'Git', 'Docker', 'CI/CD', 'Jira', 'matriz de cobertura'],
+    responsabilidades: ['diseñar planes de prueba', 'automatizar casos de regresión', 'validar APIs y flujos críticos', 'reportar defectos con evidencia', 'mantener la matriz de cobertura'],
+    requisitos: ['experiencia con Playwright o Cypress', 'pruebas de API con Postman', 'conocimientos de Git y CI/CD', 'redacción de casos de prueba', 'trabajo con equipos de desarrollo'],
+    brechas: ['certificación ISTQB', 'experiencia con pruebas de carga'],
+  },
+  {
+    id: 'backend',
+    cargo: 'Desarrollador backend',
+    cargoJunior: 'Desarrollador backend junior',
+    formacion: 'Ingeniería en Computación',
+    diplomado: 'Arquitectura de Software',
+    resumen: 'Desarrollador backend con {anios} años de experiencia construyendo APIs REST, procesos asincrónicos y modelos de datos. Trabajo con {herramientas} y cuido el rendimiento y la observabilidad de cada servicio.',
+    logros: [
+      'Reduje la latencia p95 de {p} endpoints en {q} % optimizando consultas y caché',
+      'Migré {p} procesos manuales a colas asincrónicas y eliminé {q} horas de espera operativa',
+      'Cubrí pruebas unitarias de {p} módulos con más de {q} % de cobertura y reduje regresiones en producción',
+      'Diseñé {p} integraciones con servicios externos y reduje los errores de sincronización en {q} %',
+    ],
+    junior: 'Mantuve endpoints existentes, escribí pruebas unitarias y documenté contratos de API.',
+    habilidades: ['PHP', 'Node.js', 'Python', 'PostgreSQL', 'MySQL', 'Redis', 'Docker', 'REST', 'colas de mensajes', 'Git', 'pruebas unitarias', 'CI/CD'],
+    responsabilidades: ['desarrollar y mantener APIs REST', 'diseñar modelos de datos', 'optimizar consultas y rendimiento', 'escribir pruebas automatizadas', 'participar en revisiones de código'],
+    requisitos: ['experiencia con PHP o Node.js', 'diseño de bases de datos relacionales', 'conocimientos de Docker y CI/CD', 'pruebas automatizadas', 'trabajo con equipos de producto'],
+    brechas: ['experiencia con Kubernetes', 'inglés avanzado'],
+  },
+  {
+    id: 'soporte',
+    cargo: 'Analista de soporte técnico',
+    cargoJunior: 'Analista de soporte junior',
+    formacion: 'Ingeniería en Información y Control de Gestión',
+    diplomado: 'Gestión de Servicios TI',
+    resumen: 'Analista de soporte con {anios} años de experiencia atendiendo usuarios, resolviendo incidencias con SLA y documentando soluciones reutilizables. Uso {herramientas} para ordenar el trabajo y medir la calidad del servicio.',
+    logros: [
+      'Resolví {p} tickets mensuales con un cumplimiento de SLA de {q} %',
+      'Documenté {p} soluciones reutilizables y reduje el tiempo medio de resolución en {q} %',
+      'Capacité a {p} usuarios en autoservicio y bajé las consultas repetidas en {q} %',
+      'Coordiné {p} escalamientos con desarrollo y mantuve informados a los usuarios en menos de {q} minutos',
+    ],
+    junior: 'Clasifiqué tickets, documenté respuestas y derivé incidencias complejas al equipo de segundo nivel.',
+    habilidades: ['Zendesk', 'Freshdesk', 'SLA', 'gestión de tickets', 'SQL básico', 'Jira', 'documentación', 'monitoreo', 'Power BI', 'Excel avanzado', 'atención de usuarios', 'escalamiento'],
+    responsabilidades: ['atender tickets por correo y teléfono', 'cumplir los SLA acordados', 'documentar soluciones en la base de conocimiento', 'escalar incidencias críticas', 'reportar indicadores de servicio'],
+    requisitos: ['experiencia con Zendesk o Freshdesk', 'manejo de SLA y prioridades', 'SQL básico para diagnóstico', 'redacción clara para usuarios', 'disponibilidad para turnos rotativos'],
+    brechas: ['certificación ITIL', 'inglés conversacional'],
+  },
+  {
+    id: 'marketing',
+    cargo: 'Analista de marketing digital',
+    cargoJunior: 'Analista de marketing junior',
+    formacion: 'Ingeniería Comercial',
+    diplomado: 'Analítica Digital y Marketing de Performance',
+    resumen: 'Analista de marketing con {anios} años de experiencia midiendo campañas, construyendo tableros y optimizando la inversión. Trabajo con {herramientas} y traduzco resultados en decisiones de presupuesto.',
+    logros: [
+      'Optimicé {p} campañas pagadas y reduje el costo por adquisición en {q} %',
+      'Construí tableros de atribución en Looker Studio con {p} fuentes de datos y ahorré {q} horas de reporte manual',
+      'Diseñé {p} experimentos A/B y aumenté la conversión del embudo en {q} %',
+      'Segmenté {p} audiencias con CRM y mejoré la apertura de correos en {q} %',
+    ],
+    junior: 'Preparé reportes de campañas, revisé UTMs y mantuve actualizado el calendario de contenidos.',
+    habilidades: ['Google Analytics 4', 'Looker Studio', 'Meta Ads', 'Google Ads', 'SEO', 'CRM', 'email marketing', 'SQL', 'Power BI', 'UTMs', 'atribución', 'Excel avanzado'],
+    responsabilidades: ['medir el rendimiento de campañas', 'construir tableros de marketing', 'optimizar el costo por adquisición', 'diseñar experimentos A/B', 'reportar resultados al equipo comercial'],
+    requisitos: ['experiencia con Google Analytics 4', 'gestión de campañas en Meta Ads o Google Ads', 'tableros en Looker Studio o Power BI', 'SQL básico', 'redacción de informes'],
+    brechas: ['experiencia con Snowflake', 'inglés avanzado'],
+  },
+  {
+    id: 'logistica',
+    cargo: 'Analista de logística y abastecimiento',
+    cargoJunior: 'Analista de logística junior',
+    formacion: 'Ingeniería Industrial',
+    diplomado: 'Gestión de Operaciones',
+    resumen: 'Analista de logística con {anios} años de experiencia planificando abastecimiento, midiendo despachos y mejorando indicadores de inventario. Uso {herramientas} para sostener la operación diaria.',
+    logros: [
+      'Reduje el quiebre de stock de {p} productos críticos en {q} % con un forecast semanal',
+      'Automaticé el reporte de despachos de {p} centros y ahorré {q} horas mensuales',
+      'Coordiné {p} rutas de distribución y bajé el costo por entrega en {q} %',
+      'Audité {p} bodegas y corregí diferencias de inventario por {q} % del total',
+    ],
+    junior: 'Actualicé planillas de inventario, coordiné despachos y documenté incidencias de transporte.',
+    habilidades: ['Excel avanzado', 'SQL', 'Power BI', 'WMS', 'SAP', 'forecast de demanda', 'gestión de inventario', 'KPIs de despacho', 'rutas', 'documentación', 'negociación con proveedores', 'planificación'],
+    responsabilidades: ['planificar abastecimiento', 'medir KPIs de despacho e inventario', 'coordinar transporte y bodegas', 'construir reportes operativos', 'negociar plazos con proveedores'],
+    requisitos: ['experiencia en logística o abastecimiento', 'Excel avanzado y SQL básico', 'manejo de WMS o SAP', 'tableros en Power BI', 'coordinación con proveedores'],
+    brechas: ['experiencia con SAP IBP', 'inglés avanzado'],
+  },
+];
+
+function xmur3(semilla) {
+  let hash = 1779033703 ^ semilla.length;
+  for (let i = 0; i < semilla.length; i += 1) {
+    hash = Math.imul(hash ^ semilla.charCodeAt(i), 3432918353);
+    hash = (hash << 13) | (hash >>> 19);
+  }
+  return () => {
+    hash = Math.imul(hash ^ (hash >>> 16), 2246822507);
+    hash = Math.imul(hash ^ (hash >>> 13), 3266489909);
+    hash ^= hash >>> 16;
+    return hash >>> 0;
+  };
+}
+
+function mulberry32(semilla) {
+  let estado = semilla | 0;
+  return () => {
+    estado = (estado + 0x6d2b79f5) | 0;
+    let t = Math.imul(estado ^ (estado >>> 15), 1 | estado);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function elegir(rng, lista) {
+  return lista[Math.floor(rng() * lista.length)];
+}
+
+function entero(rng, minimo, maximo) {
+  return minimo + Math.floor(rng() * (maximo - minimo + 1));
+}
+
+function muestra(rng, lista, cantidad) {
+  const copia = [...lista];
+  const salida = [];
+  while (salida.length < cantidad && copia.length) {
+    salida.push(copia.splice(Math.floor(rng() * copia.length), 1)[0]);
+  }
+  return salida;
+}
+
+function unicos(lista) {
+  return [...new Set(lista)];
+}
+
+function listaNatural(items) {
+  if (items.length <= 1) return items[0] || '';
+  return `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`;
+}
+
+function rellenarLogro(rng, plantilla) {
+  const texto = plantilla.replace(/\{([pqn])\}/g, (_marca, clave) => {
+    if (clave === 'p') return String(entero(rng, 12, 60));
+    if (clave === 'q') return String(entero(rng, 15, 55));
+    return String(entero(rng, 3, 40));
+  });
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+function escaparHtml(valor) {
+  return String(valor)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function htmlDe(titulo, texto) {
+  return [
+    '<!DOCTYPE html>',
+    '<html lang="es">',
+    '<head>',
+    '  <meta charset="utf-8">',
+    '  <meta name="viewport" content="width=device-width, initial-scale=1">',
+    `  <title>${escaparHtml(titulo)}</title>`,
+    '</head>',
+    '<body>',
+    `  <h1>${escaparHtml(titulo)}</h1>`,
+    `  <pre>${escaparHtml(texto)}</pre>`,
+    '</body>',
+    '</html>',
+    '',
+  ].join('\n');
+}
+
+/**
+ * Genera el CV, la oferta y su huella para una ronda.
+ * @param {number} round
+ * @returns {{round: number, perfil: string, cargo: string, anios: number, habilidades: string[], cvTexto: string, ofertaTexto: string, cvHtml: string, ofertaHtml: string, huella: string}}
+ */
+function generarDatosRonda(round) {
+  const sembrar = xmur3(`${RUN_ID}:${round}`);
+  const rng = mulberry32(sembrar());
+
+  const perfil = elegir(rng, PERFILES);
+  const nombre = `${elegir(rng, NOMBRES)} ${elegir(rng, APELLIDOS)}`;
+  const ciudad = elegir(rng, CIUDADES);
+  const anios = entero(rng, 4, 12);
+  const anioActual = new Date().getFullYear();
+  const inicio = anioActual - anios;
+  const corte1 = inicio + Math.max(2, Math.round(anios / 2));
+  const corte2 = Math.min(corte1 - 1, inicio + Math.max(1, Math.round((corte1 - inicio) / 2)));
+  const anioEdu = inicio - 1;
+  const anioDiplomado = Math.min(anioActual, anioEdu + entero(rng, 1, 3));
+  const [empresa1, empresa2, empresa3] = muestra(rng, EMPRESAS, 3);
+  const empresaOferta = elegir(rng, EMPRESAS.filter((empresa) => ![empresa1, empresa2, empresa3].includes(empresa)));
+  const herramientas = muestra(rng, perfil.habilidades, entero(rng, 5, 7));
+  const [logro1, logro2] = muestra(rng, perfil.logros, 2).map((plantilla) => rellenarLogro(rng, plantilla));
+  const modalidad = elegir(rng, MODALIDADES).replace('{ciudad}', ciudad);
+  const beneficios = muestra(rng, BENEFICIOS, entero(rng, 2, 3));
+  const marcador = `BATERIA-${RUN_ID}-R${round}`;
+  const sello = `Marcador de ronda: ${marcador}`;
+
+  const cvTexto = [
+    'CURRÍCULUM VITAE - PERSONA FICTICIA DE LA BATERÍA ATSCV',
+    sello,
+    `Nombre de prueba: ${nombre}`,
+    `Título: ${perfil.cargo}`,
+    `Ciudad: ${ciudad}, Chile`,
+    `Resumen profesional: ${perfil.resumen.replace('{anios}', String(anios)).replace('{herramientas}', listaNatural(herramientas.slice(0, 3)))}`,
+    'Experiencia:',
+    `- ${perfil.cargo} - ${empresa1} (${corte1} a la actualidad). ${logro1}.`,
+    `- ${perfil.cargo} - ${empresa2} (${corte2} a ${corte1}). ${logro2}.`,
+    `- ${perfil.cargoJunior} - ${empresa3} (${inicio} a ${corte2}). ${perfil.junior}`,
+    `Educación: ${perfil.formacion}, universidad ficticia (${anioEdu}). Diplomado en ${perfil.diplomado} (${anioDiplomado}).`,
+    `Habilidades: ${herramientas.join(', ')}, documentación, trabajo en equipo.`,
+    `Idiomas: español nativo e inglés técnico intermedio. Experiencia total: ${anios} años.`,
+    'Los datos de esta ficha son inventados y solo sirven para probar el servicio.',
+  ].join('\n');
+
+  const palabrasClave = unicos([
+    ...herramientas,
+    ...muestra(rng, perfil.habilidades, 4),
+    ...perfil.brechas,
+    'trabajo en equipo',
+  ]);
+
+  const ofertaTexto = [
+    `OFERTA FICTICIA DE EMPLEO - ${perfil.cargo.toUpperCase()}`,
+    sello,
+    `${empresaOferta}, modalidad ${modalidad}. Buscamos una persona con ${Math.max(2, anios - 2)} a ${anios + 2} años de experiencia.`,
+    `Responsabilidades: ${perfil.responsabilidades.join('; ')}.`,
+    `Requisitos: ${perfil.requisitos.join('; ')}.`,
+    `Requisitos deseables: ${perfil.brechas.join('; ')}.`,
+    `Palabras clave: ${palabrasClave.join(', ')}.`,
+    `Condiciones: ${elegir(rng, TIPOS_CONTRATO)}, jornada completa, ${listaNatural(beneficios)}. Oferta y empresa completamente ficticias.`,
+  ].join('\n');
+
+  const huella = createHash('sha256')
+    .update(`${cvTexto}\n---\n${ofertaTexto}`)
+    .digest('hex')
+    .slice(0, 16);
+
+  return {
+    round,
+    perfil: perfil.id,
+    cargo: perfil.cargo,
+    anios,
+    habilidades: herramientas,
+    cvTexto,
+    ofertaTexto,
+    cvHtml: htmlDe(`CV de ${nombre} - batería ATSCV`, cvTexto),
+    ofertaHtml: htmlDe(`Oferta ficticia - ${perfil.cargo}`, ofertaTexto),
+    huella,
+  };
+}
+
+// =============================================================================
+// PDF mínimo por ronda (sin dependencias)
+//
+// pdf.js extrae el texto seleccionable y solo recurre a OCR cuando una página
+// tiene menos de 20 caracteres sin espacios. Por eso el generador escribe
+// texto ASCII (sin tildes) con Helvetica y una tabla xref correcta.
+// =============================================================================
+
+const PDF_ANCHO = 595;
+const PDF_ALTO = 842;
+const PDF_MARGEN = 50;
+const PDF_TAMANO = 11;
+const PDF_INTERLINEA = 15;
+
+function sinAcentos(texto) {
+  return String(texto)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7E\n]/g, ' ')
+    .replace(/[ \t]+/g, ' ');
+}
+
+function ajustarLineas(texto, maximo = 88) {
+  const salida = [];
+  for (const cruda of texto.split('\n')) {
+    let linea = '';
+    for (const palabra of cruda.split(/\s+/)) {
+      if ((linea + ' ' + palabra).trim().length > maximo) {
+        if (linea) salida.push(linea);
+        linea = palabra;
+      } else {
+        linea = (linea + ' ' + palabra).trim();
+      }
+    }
+    salida.push(linea);
+  }
+  return salida;
+}
+
+function escaparPdf(texto) {
+  return String(texto).replace(/[\\()]/g, (marca) => '\\' + marca);
+}
+
+function construirPdf(texto, titulo = 'Documento') {
+  const lineas = ajustarLineas(texto);
+  const porPagina = Math.floor((PDF_ALTO - 2 * PDF_MARGEN) / PDF_INTERLINEA);
+  const paginas = [];
+  for (let i = 0; i < lineas.length; i += porPagina) paginas.push(lineas.slice(i, i + porPagina));
+
+  const objetos = [];
+  const agregar = (cuerpo) => {
+    objetos.push(cuerpo);
+    return objetos.length;
+  };
+
+  const catalogoId = agregar('');
+  const paginasId = agregar('');
+  const fuenteId = agregar('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+  const infoId = agregar(`<< /Title (${escaparPdf(titulo)}) /Producer (ATSCV battery harness) >>`);
+  const paginaIds = [];
+  for (const lineasPagina of paginas) {
+    const flujo = ['BT', `/F1 ${PDF_TAMANO} Tf`, `${PDF_INTERLINEA} TL`, `${PDF_MARGEN} ${PDF_ALTO - PDF_MARGEN} Td`]
+      .concat(lineasPagina.map((linea) => `(${escaparPdf(linea)}) Tj T*`))
+      .concat(['ET'])
+      .join('\n');
+    const flujoId = agregar(`<< /Length ${Buffer.byteLength(flujo, 'latin1')} >>\nstream\n${flujo}\nendstream`);
+    paginaIds.push(agregar(`<< /Type /Page /Parent ${paginasId} 0 R /MediaBox [0 0 ${PDF_ANCHO} ${PDF_ALTO}] /Resources << /Font << /F1 ${fuenteId} 0 R >> >> /Contents ${flujoId} 0 R >>`));
+  }
+  objetos[catalogoId - 1] = `<< /Type /Catalog /Pages ${paginasId} 0 R >>`;
+  objetos[paginasId - 1] = `<< /Type /Pages /Kids [${paginaIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${paginaIds.length} >>`;
+
+  let pdf = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
+  const offsets = [];
+  objetos.forEach((cuerpo, indice) => {
+    offsets.push(Buffer.byteLength(pdf, 'latin1'));
+    pdf += `${indice + 1} 0 obj\n${cuerpo}\nendobj\n`;
+  });
+  const inicioXref = Buffer.byteLength(pdf, 'latin1');
+  pdf += `xref\n0 ${objetos.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets) pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  pdf += `trailer\n<< /Size ${objetos.length + 1} /Root ${catalogoId} 0 R /Info ${infoId} 0 R >>\nstartxref\n${inicioXref}\n%%EOF\n`;
+  return Buffer.from(pdf, 'latin1');
+}
 
 function passwordDeRonda(round) {
   return `Bateria-${RUN_ID}-${round}-Aa1!`;
@@ -910,9 +1309,17 @@ async function pasoLogin(page, roundDir, round, email, password, etiqueta = 'log
   return { httpStatus: respuesta.status };
 }
 
-async function cargarModoArchivo(page, roundDir) {
-  const cvPath = path.join(ROOT, 'tests', 'fixtures', 'cv-battery.pdf');
-  const ofertaPath = path.join(ROOT, 'tests', 'fixtures', 'oferta-battery.pdf');
+async function cargarModoArchivo(page, roundDir, datos) {
+  // Cada ronda sube un PDF NUEVO: el texto es el de la ronda y el archivo se
+  // guarda como evidencia dentro del directorio de la ronda.
+  const fixturesDir = path.join(roundDir, 'fixtures');
+  mkdirSync(fixturesDir, { recursive: true });
+  const cvPath = path.join(fixturesDir, `cv-${datos.round}.pdf`);
+  const ofertaPath = path.join(fixturesDir, `oferta-${datos.round}.pdf`);
+  const cvBytes = construirPdf(sinAcentos(datos.cvTexto), `CV ronda ${datos.round}`);
+  const ofertaBytes = construirPdf(sinAcentos(datos.ofertaTexto), `Oferta ronda ${datos.round}`);
+  writeFileSync(cvPath, cvBytes);
+  writeFileSync(ofertaPath, ofertaBytes);
   await page.waitFor(
     `!!document.querySelector('#cv-tabs') && !!document.querySelector('#cv-url-bloque') && !!document.querySelector('#oferta-url-bloque')`,
     UI_TIMEOUT_MS,
@@ -943,7 +1350,14 @@ async function cargarModoArchivo(page, roundDir) {
     UI_TIMEOUT_MS,
     'CV y oferta listos en modo archivo',
   );
-  return { mode: 'archivo', cvFixture: path.basename(cvPath), ofertaFixture: path.basename(ofertaPath) };
+  return {
+    mode: 'archivo',
+    cvFixture: path.basename(cvPath),
+    ofertaFixture: path.basename(ofertaPath),
+    cvBytes: cvBytes.length,
+    ofertaBytes: ofertaBytes.length,
+    huella: datos.huella,
+  };
 }
 
 async function leerBloqueUrl(page, roundDir, bloque, url, etiqueta, timeoutMs = UI_TIMEOUT_MS) {
@@ -989,9 +1403,22 @@ async function leerBloqueUrl(page, roundDir, bloque, url, etiqueta, timeoutMs = 
   return { estado, httpStatus: respuesta.status };
 }
 
-async function cargarModoUrl(page, roundDir) {
-  const cvUrl = new URL('tests/fixtures/cv-battery.html', BASE_URL).toString();
-  const ofertaUrl = new URL('tests/fixtures/oferta-battery.html', BASE_URL).toString();
+async function cargarModoUrl(page, roundDir, datos, apiBase) {
+  // Los HTML de cada ronda se publican en el docroot público de la API, que es
+  // lo que el dominio real sirve: el lector de URL del producto los descarga
+  // desde internet, no desde el disco del arnés.
+  const fixturesDir = path.join(roundDir, 'fixtures');
+  mkdirSync(fixturesDir, { recursive: true });
+  mkdirSync(FIXTURE_RUN_DIR, { recursive: true });
+  const cvNombre = `cv-${datos.round}.html`;
+  const ofertaNombre = `oferta-${datos.round}.html`;
+  writeFileSync(path.join(FIXTURE_RUN_DIR, cvNombre), datos.cvHtml, 'utf8');
+  writeFileSync(path.join(FIXTURE_RUN_DIR, ofertaNombre), datos.ofertaHtml, 'utf8');
+  writeFileSync(path.join(fixturesDir, cvNombre), datos.cvHtml, 'utf8');
+  writeFileSync(path.join(fixturesDir, ofertaNombre), datos.ofertaHtml, 'utf8');
+  const base = FIXTURE_PUBLIC_BASE || `${String(apiBase).replace(/\/+$/, '')}/atscv/_battery`;
+  const cvUrl = `${base}/${RUN_ID}/${cvNombre}`;
+  const ofertaUrl = `${base}/${RUN_ID}/${ofertaNombre}`;
   await page.waitFor(`!!document.querySelector('#cv-url-bloque input') && !!document.querySelector('#oferta-url-bloque input')`, UI_TIMEOUT_MS, 'bloques URL');
   const cv = await leerBloqueUrl(page, roundDir, '#cv-url-bloque', cvUrl, 'cv');
   const oferta = await leerBloqueUrl(page, roundDir, '#oferta-url-bloque', ofertaUrl, 'oferta');
@@ -1012,19 +1439,25 @@ async function cargarModoUrl(page, roundDir) {
     ofertaEstado: oferta.estado,
     cvHttpStatus: cv.httpStatus,
     ofertaHttpStatus: oferta.httpStatus,
+    huella: datos.huella,
   };
 }
 
-async function cargarModoTexto(page, roundDir) {
+async function cargarModoTexto(page, roundDir, datos) {
   await page.waitFor(`!!document.querySelector('#cv-textarea') && !!document.querySelector('#oferta-textarea')`, UI_TIMEOUT_MS, 'campos de texto');
-  await page.setValue('#cv-textarea', CV_TEXTO);
-  await page.setValue('#oferta-textarea', OFERTA_TEXTO);
+  await page.setValue('#cv-textarea', datos.cvTexto);
+  await page.setValue('#oferta-textarea', datos.ofertaTexto);
   await page.waitFor(
     `document.querySelector('#btn-analizar')?.getAttribute('aria-disabled') === 'false'`,
     UI_TIMEOUT_MS,
     'CV y oferta listos en modo texto',
   );
-  return { mode: 'texto', cvLength: CV_TEXTO.length, ofertaLength: OFERTA_TEXTO.length };
+  return {
+    mode: 'texto',
+    cvLength: datos.cvTexto.length,
+    ofertaLength: datos.ofertaTexto.length,
+    huella: datos.huella,
+  };
 }
 
 async function pasoAnalizar(page, roundDir) {
@@ -1282,7 +1715,18 @@ async function ejecutarRonda(browser, db, round) {
   let downloadsVerified = 0;
   let completedEvent = null;
 
-  registrarEvento('round_started', { round, email, mode });
+  const datos = generarDatosRonda(round);
+  registrarEvento('round_started', {
+    round,
+    email,
+    mode,
+    perfil: datos.perfil,
+    cargo: datos.cargo,
+    anios: datos.anios,
+    huella: datos.huella,
+    cvLength: datos.cvTexto.length,
+    ofertaLength: datos.ofertaTexto.length,
+  });
 
   try {
     await page.navigate(BASE_URL);
@@ -1316,9 +1760,9 @@ async function ejecutarRonda(browser, db, round) {
       if (!panel.ok) failures.push({ step: 'panel', error: panel.error.message });
 
       const carga = await ejecutarPaso(page, roundDir, round, `cv-oferta-modo-${mode}`, async () => {
-        if (mode === 'archivo') return cargarModoArchivo(page, roundDir);
-        if (mode === 'url') return cargarModoUrl(page, roundDir);
-        return cargarModoTexto(page, roundDir);
+        if (mode === 'archivo') return cargarModoArchivo(page, roundDir, datos);
+        if (mode === 'url') return cargarModoUrl(page, roundDir, datos, apiBase);
+        return cargarModoTexto(page, roundDir, datos);
       });
       if (!carga.ok) failures.push({ step: `cv-oferta-modo-${mode}`, error: carga.error.message });
 
@@ -1421,6 +1865,8 @@ async function ejecutarRonda(browser, db, round) {
       mode,
       email,
       status,
+      perfil: datos.perfil,
+      huella: datos.huella,
       userId: userId || null,
       deletion,
       deletionVerified,
@@ -1447,7 +1893,37 @@ function imprimirResumen() {
   console.log(JSON.stringify(resumenGlobal, null, 2));
 }
 
+/**
+ * Verificación local del generador: no abre Chrome, no toca la API ni la red.
+ * Sirve para comprobar que cada ronda produce datos nuevos y que el PDF
+ * generado lleva texto seleccionable.
+ */
+function verificarGeneradorLocal() {
+  const total = Math.min(ROUNDS, 1000);
+  const rondas = Array.from({ length: total }, (_ignorado, indice) => generarDatosRonda(indice + 1));
+  const huellas = rondas.map((datos) => datos.huella);
+  if (new Set(huellas).size !== rondas.length) {
+    const repetidas = huellas.filter((huella, indice) => huellas.indexOf(huella) !== indice);
+    throw new Error(`Las rondas de prueba no son todas distintas (${repetidas.join(', ')})`);
+  }
+  for (const datos of rondas.slice(0, 3)) {
+    if (!datos.cvTexto.trim() || !datos.ofertaTexto.trim()) {
+      throw new Error(`La ronda ${datos.round} generó texto vacío`);
+    }
+    console.log(`ronda ${datos.round} · perfil=${datos.perfil} · huella=${datos.huella} · cv=${datos.cvTexto.length} · oferta=${datos.ofertaTexto.length}`);
+  }
+  const perfiles = [...new Set(rondas.map((datos) => datos.perfil))];
+  const muestra = path.join(os.tmpdir(), `atscv-bateria-muestra-${RUN_ID}.pdf`);
+  writeFileSync(muestra, construirPdf(sinAcentos(rondas[0].cvTexto), `CV ronda ${rondas[0].round}`));
+  console.log(`PDF de muestra: ${muestra}`);
+  console.log(`Generador OK: ${total} ronda(s) con datos distintos · perfiles usados: ${perfiles.join(', ')}`);
+}
+
 async function main() {
+  if (DRY_DATA) {
+    verificarGeneradorLocal();
+    return;
+  }
   const completadas = leerCompletadas();
   if (!RESUME && completadas.size > 0) {
     throw new Error(`La corrida ${RUN_ID} ya tiene ${completadas.size} ronda(s) completada(s); usa RESUME=1 o cambia RUN_ID`);
@@ -1474,22 +1950,31 @@ async function main() {
     pendientes.push(round);
   }
 
+  // ONLY_ROUNDS permite reintentar solo las rondas que fallaron, sin repetir
+  // las 100: "ONLY_ROUNDS=42,99 ROUNDS=100 RUN_ID=..." .
+  const soloRondas = (process.env.ONLY_ROUNDS || '').trim();
+  const filtroRondas = soloRondas
+    ? new Set(soloRondas.split(',').map((valor) => Number.parseInt(valor.trim(), 10)).filter((valor) => Number.isInteger(valor)))
+    : null;
+  const rondasAEjecutar = filtroRondas ? pendientes.filter((round) => filtroRondas.has(round)) : pendientes;
+
   registrarEvento('run_started', {
     roundsRequested: ROUNDS,
     concurrency: CONCURRENCY,
     resume: RESUME,
-    pendingRounds: pendientes,
+    pendingRounds: rondasAEjecutar,
+    onlyRounds: soloRondas || null,
     baseUrl: BASE_URL,
     apiRepo: API_REPO,
   });
-  console.log(`Batería ATSCV: run=${RUN_ID} rondas=${ROUNDS} pendientes=${pendientes.length} concurrencia=${CONCURRENCY}`);
+  console.log(`Batería ATSCV: run=${RUN_ID} rondas=${ROUNDS} pendientes=${rondasAEjecutar.length} concurrencia=${CONCURRENCY}`);
   console.log(`Log: ${JSONL_PATH}`);
 
   const db = new BaseDatos(API_REPO);
   const browser = await lanzarChrome();
   let exitCode = 0;
   try {
-    const cola = [...pendientes];
+    const cola = [...rondasAEjecutar];
     const workers = Array.from({ length: Math.min(CONCURRENCY, cola.length) }, async () => {
       while (cola.length) {
         const round = cola.shift();
@@ -1508,6 +1993,12 @@ async function main() {
     await Promise.all(workers);
   } finally {
     await browser.close();
+    // Los HTML del modo URL son efímeros: se borran SOLO la carpeta de esta
+    // corrida, nunca la carpeta padre _battery.
+    if (existsSync(FIXTURE_RUN_DIR)) {
+      rmSync(FIXTURE_RUN_DIR, { recursive: true, force: true });
+      console.log(`Fixtures URL eliminados: ${FIXTURE_RUN_DIR}`);
+    }
   }
 
   resumenGlobal.finishedAt = ahora();

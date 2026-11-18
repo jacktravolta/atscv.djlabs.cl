@@ -77,6 +77,52 @@ Las rondas alternan automáticamente entre:
 Para una corrida de 100 rondas quedan 34 de archivo, 33 de URL y 33 de texto.
 El script no modifica fixtures, front, CSS ni JavaScript de la aplicación.
 
+## Datos nuevos en cada ronda
+
+Cada ronda genera su propio CV y su propia oferta: no se repite ni un solo
+documento entre las 100 pruebas.
+
+- La semilla combina `RUN_ID` y el número de ronda (`xmur3` + `mulberry32`),
+  así que reanudar una corrida reproduce exactamente los mismos datos.
+- Hay seis perfiles profesionales (analista de datos, QA, backend, soporte,
+  marketing y logística). Cada ronda cambia nombre, ciudad, empresas, años de
+  experiencia, logros numéricos, herramientas, condiciones y brechas entre el
+  CV y la oferta.
+- La `huella` de la ronda es el SHA-256 (16 hex) de `CV + oferta`. Se registra
+  en `round_started` y en `round_completed`, y sirve para comprobar que las
+  100 rondas usaron datos distintos.
+- El modo `texto` escribe esos textos en los campos; el modo `archivo` genera
+  un PDF mínimo por documento (texto seleccionable en Helvetica, sin
+  dependencias: el front lo extrae con pdf.js); el modo `url` publica un HTML
+  por documento.
+
+### Dónde se publican los HTML del modo URL
+
+El lector de URL del producto descarga la página desde internet, así que los
+HTML se publican en el docroot público de la API:
+
+```text
+<API_REPO>/public/atscv/_battery/<RUN_ID>/cv-<ronda>.html
+<API_REPO>/public/atscv/_battery/<RUN_ID>/oferta-<ronda>.html
+```
+
+Se sirven como `https://api.djlabs.cl/atscv/_battery/<RUN_ID>/<archivo>`.
+Al terminar la corrida se borra SOLO la carpeta `<RUN_ID>`; la carpeta padre
+`_battery` nunca se toca. Con `FIXTURE_PUBLIC_BASE` se puede apuntar a otra
+base pública.
+
+La carpeta `public/atscv/_battery/` está en `.git/info/exclude` del checkout de
+la API: los fixtures no se commitean.
+
+### Verificación local del generador
+
+```bash
+BATTERY_DRY_DATA=1 ROUNDS=100 RUN_ID=verificacion-100 node tests/atscv-battery.mjs
+```
+
+No abre Chrome ni toca la API: comprueba que las 100 rondas tengan huellas
+distintas y deja un PDF de muestra en el directorio temporal.
+
 ## Variables de entorno
 
 | Variable | Valor por defecto | Uso |
