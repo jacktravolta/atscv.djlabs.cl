@@ -615,7 +615,15 @@ async function lanzarChrome() {
     connection.close();
     await sleep(300);
     try { proceso.kill('SIGTERM'); } catch { /* best-effort */ }
-    rmSync(perfil, { recursive: true, force: true });
+    // El perfil se borra tras cerrar el navegador: en modo headful Chrome sigue
+    // escribiendo en disco unos instantes y el borrado recursivo se topaba con
+    // ENOTEMPTY. Se reintenta y, si aun asi falla, el temporal se deja para el
+    // limpiado del sistema: perderlo no invalida la corrida.
+    try {
+      rmSync(perfil, { recursive: true, force: true, maxRetries: 10, retryDelay: 300 });
+    } catch {
+      try { rmSync(perfil, { recursive: true, force: true, maxRetries: 3, retryDelay: 500 }); } catch { /* se deja el temporal */ }
+    }
   }
 
   return { connection, createPage, disposePage, close, proceso, stderr: () => stderr };
