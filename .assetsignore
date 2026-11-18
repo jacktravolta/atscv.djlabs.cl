@@ -1,0 +1,13 @@
+# Archivos internos de desarrollo: no forman parte del sitio y no deben servirse.
+# Cloudflare aplica este archivo al contenido publicado; el repositorio conserva todo.
+
+odd/
+docs/
+ADAPTATION_SUMMARY.md
+README.md
+package.json
+tailwind.build.config.js
+.htaccess
+
+# Los fixtures HTML sí se publican: la batería los descarga desde el dominio.
+tests/fixtures/*.pdf
