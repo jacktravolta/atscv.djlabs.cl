@@ -142,21 +142,25 @@ No toca los límites por usuario de ATSCV, incluidos `atscv:user:%`,
 cuenta nueva atraviese los límites globales de acceso, sin alterar los
 límites de consumo del producto.
 
-## Bloqueo conocido del modo URL
+## Modo URL: bloque ya resuelto
 
 El 17 de noviembre de 2026 se comprobó un defecto del producto en producción,
-no del arnés:
+no del arnés: la API respondía `URL inválida. Debe incluir el esquema y el
+dominio.` ante una URL que sí era válida.
 
-- el fixture `https://atscv.djlabs.cl/tests/fixtures/cv-battery.html` responde
-  HTTP 200;
-- el front envía `POST /v1/cv-ats/desde-url` con método `POST` y cuerpo
-  `{"url":"https://atscv.djlabs.cl/tests/fixtures/cv-battery.html"}`;
-- la API responde HTTP 400 con código `URL_INVALID` y el mensaje `URL inválida.
-  Debe incluir el esquema y el dominio.`
+**Causa:** GitHub Pages sirve los `.html` con URL limpia, así que el fixture
+responde `307` con un `Location` **relativo** (`/tests/fixtures/cv-battery`).
+El re-chequeo anti-SSRF recibía esa referencia sin resolver y la tomaba por
+una URL sin esquema ni dominio → rechazo.
 
-El script conserva la respuesta real en `responses/desde-url-cv.json`. El
-modo URL no debe marcarse verde hasta que la API acepte esa URL válida. Los
-modos archivo y texto no dependen de este endpoint.
+**Corrección:** el `Location` se resuelve contra la URL efectiva del salto
+anterior antes de volver a validar (commit `314fb42` en api-independent, ya
+en producción).
+
+**Verificación:** el 18 de noviembre de 2026 se corrieron 2 rondas del arnés
+contra el dominio real (modos `archivo` y `url`): **2/2 OK**, con
+`cv-oferta-modo-url` en verde y el paso de chat en verde. El script conserva
+la respuesta real en `responses/desde-url-cv.json`.
 
 ## Comprobaciones antes de entregar
 
