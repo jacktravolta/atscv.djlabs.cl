@@ -49,6 +49,9 @@ export async function apiGet(url, options = {}) {
     const error = new Error(message);
     error.code = payload && payload.error ? payload.error.code : undefined;
     error.status = response.status;
+    error.statusDetail = payload && payload.error
+      ? (payload.error.status_detail || payload.error.statusDetail)
+      : (payload && (payload.status_detail || payload.statusDetail));
     throw error;
   }
 
@@ -103,6 +106,9 @@ export async function apiPost(url, body, headers = {}, options = {}) {
     const error = new Error(message);
     error.code = payload && payload.error ? payload.error.code : undefined;
     error.status = response.status;
+    error.statusDetail = payload && payload.error
+      ? (payload.error.status_detail || payload.error.statusDetail)
+      : (payload && (payload.status_detail || payload.statusDetail));
     throw error;
   }
 

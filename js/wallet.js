@@ -7,6 +7,15 @@ import {
   createTopupOrder,
   setFieldError,
 } from './topup.js';
+import {
+  createCardOrder,
+  fetchPaymentQuote,
+  mountMercadoPagoBrick,
+  normalizeMercadoPagoCardData,
+  paymentOutcome,
+  resolvePaymentRail,
+  selectMercadoPagoVariant,
+} from './mercadopago.js?v=1';
 // Wallet panel: balance, movements, and active tariffs.
 //
 // The transport (http.js) and the top-up rules (topup.js) are shared with
@@ -57,6 +66,12 @@ const numberFormat = new Intl.NumberFormat('es-CL');
  * render" (first boot), which never animates.
  */
 let lastDisplayedBalance = null;
+
+let paymentRail = null;
+let paymentQuote = null;
+let cardBrick = null;
+let cardMountVersion = 0;
+let walletUserEmail = null;
 
 // The wallet is per heart: the movements list follows the heart the user is
 // viewing (same source notifications.js uses). Empty = installation heart.
@@ -455,6 +470,89 @@ function selectedTopupAmount() {
   return TOPUP_AMOUNTS.has(amount) ? amount : TOPUP_DEFAULT_AMOUNT;
 }
 
+function setCardStatus(message) {
+  const status = document.getElementById('topup-card-status');
+  if (!status) return;
+
+  status.textContent = message || '';
+  status.classList.toggle('hidden', !message);
+}
+
+function unmountCardBrick() {
+  cardMountVersion += 1;
+
+  if (cardBrick && typeof cardBrick.unmount === 'function') {
+    try {
+      cardBrick.unmount();
+    } catch (_) { /* The Brick may already be detached. */ }
+  }
+
+  cardBrick = null;
+}
+
+async function mountCardBrick() {
+  unmountCardBrick();
+  const version = cardMountVersion;
+  const host = document.getElementById('topup-card-brick');
+
+  if (!paymentRail || !paymentRail.isMercadoPago || !paymentRail.publicKey || !host) {
+    setCardStatus('');
+    return;
+  }
+
+  host.replaceChildren();
+  setCardStatus('Preparando el formulario de tarjeta…');
+
+  const controller = await mountMercadoPagoBrick({
+    target: host.id,
+    publicKey: paymentRail.publicKey,
+    amount: selectedTopupAmount(),
+    email: walletUserEmail,
+    onReady: () => setCardStatus('Completa los datos de tu tarjeta para continuar.'),
+    onError: () => setCardStatus('No pudimos cargar el formulario de tarjeta. Inténtalo nuevamente en un momento, por favor.'),
+  });
+
+  if (version !== cardMountVersion) {
+    if (controller && typeof controller.unmount === 'function') {
+      try {
+        controller.unmount();
+      } catch (_) { /* A newer Brick already replaced it. */ }
+    }
+    return;
+  }
+
+  if (!controller) {
+    setCardStatus('No pudimos cargar el formulario de tarjeta. Inténtalo nuevamente en un momento, por favor.');
+    return;
+  }
+
+  cardBrick = controller;
+}
+
+async function updatePaymentRail(limits, quote, email) {
+  walletUserEmail = typeof email === 'string' ? email : null;
+  const resolved = resolvePaymentRail(limits, quote);
+
+  if (resolved.provider !== 'mercadopago') {
+    paymentRail = null;
+    paymentQuote = null;
+    unmountCardBrick();
+    document.getElementById('topup-card-payment')?.classList.add('hidden');
+    return;
+  }
+
+  paymentRail = { ...resolved, isMercadoPago: true };
+  paymentQuote = quote;
+  document.getElementById('topup-card-payment')?.classList.remove('hidden');
+
+  if (!paymentRail.publicKey) {
+    setCardStatus('El formulario de tarjeta no está disponible por ahora. Inténtalo nuevamente más tarde, por favor.');
+    return;
+  }
+
+  await mountCardBrick();
+}
+
 /**
  * Único escritor del estado disabled del botón de pago. Tras un pago
  * confirmado el botón queda deshabilitado hasta que el usuario elija un
@@ -600,6 +698,108 @@ function celebrateBalance(prev, next) {
   playPaymentCue('coins');
 }
 
+async function submitMercadoPagoTopup(amount) {
+  const consent = document.getElementById('topup-legal-consent');
+
+  if (!consent || !consent.checked) {
+    showError('Para continuar, acepta los Términos y Condiciones y la Política de Privacidad.');
+    consent?.focus();
+    return;
+  }
+
+  if (!cardBrick || typeof cardBrick.getFormData !== 'function') {
+    showError('El formulario de tarjeta no está disponible por ahora. Inténtalo nuevamente en un momento, por favor.');
+    return;
+  }
+
+  const variant = selectMercadoPagoVariant(paymentQuote, amount);
+
+  if (!variant) {
+    showError('El monto que elegiste ya no está disponible para pago con tarjeta. Elige otro pack e inténtalo nuevamente.');
+    return;
+  }
+
+  setTopupSubmitDisabled(true);
+  setVoucherPending('Procesando tu pago…', { spinner: true });
+
+  let orderCreated = false;
+  let paidInPlace = false;
+
+  try {
+    const rawCardData = await cardBrick.getFormData();
+    const cardData = normalizeMercadoPagoCardData(rawCardData, walletUserEmail);
+
+    if (!cardData) {
+      showError('No pudimos leer todos los datos de la tarjeta. Revisa el formulario e inténtalo nuevamente, por favor.');
+      return;
+    }
+
+    const order = await createCardOrder({
+      variantId: variant.variantId,
+      cardData,
+      heart: walletHeart(),
+    });
+
+    if (!order || (!order.orderId && !order.providerOrderId)) {
+      showError('No pudimos completar el pago. Inténtalo nuevamente en un momento, por favor.');
+      return;
+    }
+
+    orderCreated = true;
+    if (order.orderId) rememberLastOrder(order.orderId);
+
+    const outcome = paymentOutcome(order.status, order.statusDetail);
+
+    if (outcome.kind === 'approved') {
+      paidInPlace = true;
+      const prevBalance = lastDisplayedBalance;
+      offset = 0;
+      await loadAll();
+      celebrateBalance(prevBalance, lastDisplayedBalance);
+      setTimeout(() => {
+        showVoucher(order.orderId, { fromStorage: true, noticeOnError: true, reveal: true });
+      }, 2000);
+      return;
+    }
+
+    if (outcome.kind === 'rejected' || outcome.kind === 'canceled') {
+      const message = `${outcome.title}. ${outcome.message}`;
+      showError(message);
+      showFailedVoucherCard(message);
+      return;
+    }
+
+    if (order.redirectUrl) {
+      window.location.href = order.redirectUrl;
+      return;
+    }
+
+    setVoucherPending(`${outcome.title}. ${outcome.message}`);
+  } catch (error) {
+    const outcome = error && error.statusDetail
+      ? paymentOutcome('REJECTED', error.statusDetail)
+      : null;
+    const message = outcome
+      ? `${outcome.title}. ${outcome.message}`
+      : (error && error.message
+        ? error.message
+        : 'No pudimos iniciar el pago. Inténtalo nuevamente en un momento, por favor.');
+
+    showError(message);
+
+    if (orderCreated) {
+      setVoucherPending('No pudimos confirmar el pago todavía: ' + message, { tone: 'error' });
+    } else {
+      playPaymentCue('failure');
+      showFailedVoucherCard(message);
+    }
+  } finally {
+    if (!paidInPlace) {
+      setTopupSubmitDisabled(false);
+    }
+  }
+}
+
 async function submitTopup() {
   const amount = selectedTopupAmount();
   const { body: documentBody, invalid } = collectTopupDocument();
@@ -614,6 +814,11 @@ async function submitTopup() {
     const first = document.getElementById(invalid[0].id);
     if (first) first.focus();
     showError('Revisa los campos marcados en rojo antes de pagar.');
+    return;
+  }
+
+  if (paymentRail && paymentRail.isMercadoPago) {
+    await submitMercadoPagoTopup(amount);
     return;
   }
 
@@ -994,7 +1199,8 @@ async function loadAll() {
   const preservePaymentNotice = paymentReturnNoticeActive;
 
   try {
-    const [balance, movements, tariffs, limits] = await Promise.all([
+    const paymentHeart = walletHeart() || activeHeart() || null;
+    const [balance, movements, tariffs, limits, quote, me] = await Promise.all([
       // withHeart: agrega ?heart= solo cuando la vista fijó WALLET_HEART
       // (panel de un solo heart); sin override las URLs quedan igual que
       // siempre.
@@ -1002,6 +1208,8 @@ async function loadAll() {
       apiGet(withHeart(`/credits/movements?limit=${PAGE_SIZE}&offset=${offset}${heartQuery('&')}`)),
       apiGet('/tariffs'),
       apiGet('/payments/limits'),
+      fetchPaymentQuote(paymentHeart).catch(() => null),
+      apiGet(withHeart('/auth/me')).catch(() => null),
     ]);
 
     // Capture BEFORE the refresh renders the credited balance: the
@@ -1021,6 +1229,9 @@ async function loadAll() {
     if (limits.provider === 'fake') {
       document.getElementById('topup-fake-note').classList.remove('hidden');
     }
+
+    const email = me && me.user ? me.user.email : null;
+    await updatePaymentRail(limits, quote, email);
 
     // Si hay una recarga reciente esperando confirmación (retorno real del
     // gateway o reapertura del panel), intenta mostrar su voucher.
@@ -1201,6 +1412,10 @@ export function initWallet() {
       // Volver a elegir un pack re-habilita el pago tras un cobro exitoso.
       if (topupSubmit) {
         topupSubmit.disabled = false;
+      }
+
+      if (paymentRail && paymentRail.isMercadoPago) {
+        mountCardBrick();
       }
     });
   }

@@ -340,7 +340,7 @@
         // refreshWallet (resetea paginación y recarga los 4 recursos).
         const paymentDetails = options && options.paymentReturn;
 
-        import('../wallet.js?v=6').then(function (m) {
+        import('../wallet.js?v=7').then(function (m) {
           if (m.initWallet) {
             m.initWallet();
           }

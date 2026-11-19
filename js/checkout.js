@@ -8,6 +8,16 @@ import {
   setFieldError,
 } from './topup.js';
 import { openRegisterModal } from './register-modal.js';
+import {
+  createCardOrder,
+  fetchPaymentLimits,
+  fetchPaymentQuote,
+  mountMercadoPagoBrick,
+  normalizeMercadoPagoCardData,
+  paymentOutcome,
+  resolvePaymentRail,
+  selectMercadoPagoVariant,
+} from './mercadopago.js?v=1';
 // Public checkout: the PACKS are visible to anyone, the PAY is gated by a
 // real account.
 //
@@ -84,6 +94,10 @@ function initCheckout(root) {
   const notice = root.querySelector('[data-checkout-notice]');
   const errorBox = root.querySelector('[data-checkout-error]');
   const receipt = root.querySelector('[data-checkout-receipt]');
+  const cardPaymentBox = root.querySelector('[data-checkout-card-payment]');
+  const brickHost = root.querySelector('[data-checkout-card-brick]');
+  const brickStatus = root.querySelector('[data-checkout-card-status]');
+  const legalConsent = root.querySelector('[data-checkout-legal-consent]');
 
   if (!packsHost || !submitButton) {
     return;
@@ -91,6 +105,10 @@ function initCheckout(root) {
 
   let session = null;
   let signedIn = false;
+  let paymentRail = null;
+  let paymentQuote = null;
+  let cardBrick = null;
+  let cardMountVersion = 0;
 
   function showNotice(message) {
     if (!notice) return;
@@ -114,6 +132,96 @@ function initCheckout(root) {
     if (!errorBox) return;
     errorBox.textContent = '';
     errorBox.classList.add('hidden');
+  }
+
+  function setBrickStatus(message) {
+    if (!brickStatus) return;
+    brickStatus.textContent = message || '';
+    brickStatus.classList.toggle('hidden', !message);
+  }
+
+  function unmountCardBrick() {
+    cardMountVersion += 1;
+
+    if (cardBrick && typeof cardBrick.unmount === 'function') {
+      try {
+        cardBrick.unmount();
+      } catch (_) { /* The Brick may already be detached. */ }
+    }
+
+    cardBrick = null;
+  }
+
+  async function mountCardBrick() {
+    unmountCardBrick();
+    const version = cardMountVersion;
+
+    if (!paymentRail || !paymentRail.isMercadoPago || !paymentRail.publicKey || !brickHost) {
+      setBrickStatus('');
+      return;
+    }
+
+    brickHost.replaceChildren();
+    setBrickStatus('Preparando el formulario de tarjeta…');
+
+    const controller = await mountMercadoPagoBrick({
+      target: brickHost.id,
+      publicKey: paymentRail.publicKey,
+      amount: selectedAmount(root),
+      email: session && session.user ? session.user.email : null,
+      onReady: () => setBrickStatus('Completa los datos de tu tarjeta para continuar.'),
+      onError: () => setBrickStatus('No pudimos cargar el formulario de tarjeta. Inténtalo nuevamente en un momento, por favor.'),
+    });
+
+    if (version !== cardMountVersion) {
+      if (controller && typeof controller.unmount === 'function') {
+        try {
+          controller.unmount();
+        } catch (_) { /* A newer Brick already replaced it. */ }
+      }
+      return;
+    }
+
+    if (!controller) {
+      setBrickStatus('No pudimos cargar el formulario de tarjeta. Inténtalo nuevamente en un momento, por favor.');
+      return;
+    }
+
+    cardBrick = controller;
+  }
+
+  async function loadPaymentRail() {
+    let limits = null;
+    let quote = null;
+
+    try {
+      limits = await fetchPaymentLimits(options.heart || null);
+    } catch (_) { /* The current redirect flow remains available. */ }
+
+    try {
+      quote = await fetchPaymentQuote(options.heart || null);
+    } catch (_) { /* The quote carries the key and server-owned variant. */ }
+
+    const resolved = resolvePaymentRail(limits, quote);
+
+    if (resolved.provider !== 'mercadopago') {
+      paymentRail = null;
+      paymentQuote = null;
+      unmountCardBrick();
+      cardPaymentBox?.classList.add('hidden');
+      return;
+    }
+
+    paymentRail = { ...resolved, isMercadoPago: true };
+    paymentQuote = quote;
+    cardPaymentBox?.classList.remove('hidden');
+
+    if (!paymentRail.publicKey) {
+      setBrickStatus('El formulario de tarjeta no está disponible por ahora. Inténtalo nuevamente más tarde, por favor.');
+      return;
+    }
+
+    await mountCardBrick();
   }
 
   /**
@@ -220,6 +328,94 @@ function initCheckout(root) {
     paintState();
   }
 
+  async function startCardPayment(amount) {
+    if (!legalConsent || !legalConsent.checked) {
+      showError('Para continuar, acepta los Términos y Condiciones y la Política de Privacidad.');
+      legalConsent?.focus();
+      return;
+    }
+
+    if (!cardBrick || typeof cardBrick.getFormData !== 'function') {
+      showError('El formulario de tarjeta no está disponible por ahora. Inténtalo nuevamente en un momento, por favor.');
+      return;
+    }
+
+    const variant = selectMercadoPagoVariant(paymentQuote, amount);
+
+    if (!variant) {
+      showError('El monto que elegiste ya no está disponible para pago con tarjeta. Elige otro pack e inténtalo nuevamente.');
+      return;
+    }
+
+    clearError();
+    clearNotice();
+    submitButton.disabled = true;
+    labelEl.textContent = 'Procesando tu pago…';
+
+    let paid = false;
+
+    try {
+      const rawCardData = await cardBrick.getFormData();
+      const cardData = normalizeMercadoPagoCardData(
+        rawCardData,
+        session && session.user ? session.user.email : null,
+      );
+
+      if (!cardData) {
+        showError('No pudimos leer todos los datos de la tarjeta. Revisa el formulario e inténtalo nuevamente, por favor.');
+        return;
+      }
+
+      const order = await createCardOrder({
+        variantId: variant.variantId,
+        cardData,
+        heart: options.heart || null,
+      });
+
+      if (!order || (!order.orderId && !order.providerOrderId)) {
+        showError('No pudimos completar el pago. Inténtalo nuevamente en un momento, por favor.');
+        return;
+      }
+
+      const outcome = paymentOutcome(order.status, order.statusDetail);
+
+      if (outcome.kind === 'approved') {
+        paid = true;
+        await showReceipt({
+          credits: order.credits,
+          order_id: order.orderId,
+        });
+        return;
+      }
+
+      if (outcome.kind === 'rejected' || outcome.kind === 'canceled') {
+        showError(`${outcome.title}. ${outcome.message}`);
+        return;
+      }
+
+      if (order.redirectUrl) {
+        window.location.href = order.redirectUrl;
+        return;
+      }
+
+      showNotice(`${outcome.title}. ${outcome.message}`);
+    } catch (error) {
+      if (error && error.statusDetail) {
+        const outcome = paymentOutcome('REJECTED', error.statusDetail);
+        showError(`${outcome.title}. ${outcome.message}`);
+      } else {
+        showError(error && error.message
+          ? error.message
+          : 'No pudimos iniciar el pago. Inténtalo nuevamente en un momento, por favor.');
+      }
+    } finally {
+      if (!paid) {
+        submitButton.disabled = false;
+        paintState();
+      }
+    }
+  }
+
   /**
    * Creates the order and hands the visitor over to the payment gateway.
    */
@@ -235,6 +431,11 @@ function initCheckout(root) {
       const first = document.getElementById(invalid[0].id);
       if (first) first.focus();
       showError('Revisa los campos marcados en rojo antes de pagar.');
+      return;
+    }
+
+    if (paymentRail && paymentRail.isMercadoPago) {
+      await startCardPayment(amount);
       return;
     }
 
@@ -294,6 +495,10 @@ function initCheckout(root) {
     submitButton.disabled = false;
     receipt?.classList.add('hidden');
     paintState();
+
+    if (paymentRail && paymentRail.isMercadoPago) {
+      mountCardBrick();
+    }
   });
 
   // Factura revela los datos tributarios; boleta los mantiene fuera de la
@@ -315,6 +520,8 @@ function initCheckout(root) {
     }
   }
 
+  legalConsent?.addEventListener('change', clearError);
+
   submitButton.addEventListener('click', async () => {
     if (!signedIn) {
       openRegistration();
@@ -335,6 +542,7 @@ function initCheckout(root) {
     signedIn = true;
     paintState();
     showNotice('¡Listo! Tu cuenta quedó creada y acreditamos 100 créditos de bienvenida. Ya puedes pagar tu pack.');
+    loadPaymentRail();
   });
 
   // Estado inicial: sin sesión el botón pide la cuenta; con sesión, paga
@@ -348,6 +556,7 @@ function initCheckout(root) {
       session = { user: me.user, balance: typeof me.balance === 'number' ? me.balance : null };
       signedIn = true;
       paintState();
+      loadPaymentRail();
     })
     .catch((error) => {
       // 401 = visitante anónimo (el caso normal de este front). Cualquier

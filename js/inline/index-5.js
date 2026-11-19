@@ -23,6 +23,14 @@
         if (body) body.focus();
       }
 
+      function openFromHash() {
+        var match = /^#legal-(terminos|privacidad)$/.exec(window.location.hash || '');
+        if (match) openPanel(match[1]);
+      }
+
+      window.addEventListener('hashchange', openFromHash);
+      openFromHash();
+
       document.addEventListener('click', function (event) {
         var trigger = event.target && event.target.closest
           ? event.target.closest('[data-legal-modal]')
